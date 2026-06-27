@@ -4,6 +4,9 @@
 // Schema: 11 data columns (from CSV) + 4 system columns (from pipeline) = 15 total
 // CSV format: pipe-delimited, no header row
 // Example: 2026-06-15|09:45-10:00|S|ATM|Offline|9000000.00|5000000.00|4000000.00|1000|500|1500
+//
+// NOTE: KQL `decimal` is a 128-bit fixed-point type and does NOT accept precision/scale
+// like SQL. Use `decimal` (NOT `decimal(16,2)`). Values like 9000000.00 are stored exactly.
 
 .create table DepositMovement (
     Date:                 datetime,
@@ -11,9 +14,9 @@
     Product:              string,
     Channel:              string,
     Channel_Group:        string,
-    Credit_Amount:        decimal(16,2),
-    Debit_Amount:         decimal(16,2),
-    Net_Amount:           decimal(16,2),
+    Credit_Amount:        decimal,
+    Debit_Amount:         decimal,
+    Net_Amount:           decimal,
     Credit_Transaction:   long,
     Debit_Transaction:    long,
     Total_Transaction:    long,
@@ -50,5 +53,5 @@
 // Set retention and hot cache policies
 // Retention: Keep data for 365 days (auto-delete older data)
 // Hot cache: Last 90 days in fast storage (SSD/RAM), older data in cold storage
-.alter table DepositMovement policy retention softdelete = 365d recoverability = enabled
+.alter-merge table DepositMovement policy retention softdelete = 365d recoverability = enabled
 .alter table DepositMovement policy caching hot = 90d
