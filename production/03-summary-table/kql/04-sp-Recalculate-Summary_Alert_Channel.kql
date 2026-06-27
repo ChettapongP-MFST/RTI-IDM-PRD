@@ -1,0 +1,53 @@
+// Production 03 — Stored Function: Recalculate Summary_Alert_Channel (Gold)
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit)
+//
+// Purpose: After new data lands in DepositMovement, recalculate ONLY the dates present
+// in the new batch (identified by the exact load_ts the pipeline stamped on the rows).
+//
+// Fabric Eventhouse uses ".create-or-alter function" (not ".create procedure").
+// The function returns a result set (pure query, no side effects).
+// To write the results into the Gold table, call it via:
+//     .set-or-append Summary_Alert_Channel <| sp_Recalculate_Summary_Alert_Channel(datetime(2026-06-15T08:00:00Z))
+//
+// Production note: source schema has NO Transaction_Type column. Counts use
+// Total_Transaction (long); amounts are decimal.
+
+.create-or-alter function with (docstring = "Recalculate Summary_Alert_Channel for a specific pipeline load batch", folder = "Procedures")
+sp_Recalculate_Summary_Alert_Channel(pipeline_load_ts: datetime)
+{
+    // Step 1: Find distinct dates from the batch identified by pipeline_load_ts
+    // The pipeline passes the exact load_ts it stamped on the rows, so we match precisely
+    let RecentDates = DepositMovement
+        | where load_ts == pipeline_load_ts
+        | distinct Date;
+
+    // Step 2: For each date in the batch, re-aggregate the FULL day by Time + Channel
+    RecentDates
+    | join kind=inner DepositMovement on Date
+    | summarize
+        Credit_Total = sum(Credit_Amount),
+        Debit_Total  = sum(Debit_Amount),
+        Net_Amount   = sum(Net_Amount),
+        Txn_Count    = sum(Total_Transaction)
+        by Date, Time, Channel
+    | extend UpdatedAtUtc = now()
+}
+
+// ============================================================
+// HOW TO USE
+// ============================================================
+// 1. Run the .create-or-alter above to register the function.
+//
+// 2. Test — preview what would be inserted (pass any known load_ts):
+//        sp_Recalculate_Summary_Alert_Channel(datetime(2026-06-15T08:00:00Z))
+//
+// 3. Execute — append results into the Gold table:
+//        .set-or-append Summary_Alert_Channel <| sp_Recalculate_Summary_Alert_Channel(datetime(2026-06-15T08:00:00Z))
+//
+// 4. In the Data Pipeline (Production 04), the KQL Activity runs:
+//        .set-or-append Summary_Alert_Channel <| sp_Recalculate_Summary_Alert_Channel(datetime(@{variables('vLoadTs')}))
+//    where vLoadTs is a pipeline variable set to @utcNow() before the Copy activity.
+// ============================================================
+
+// Verify the function exists
+.show function sp_Recalculate_Summary_Alert_Channel
