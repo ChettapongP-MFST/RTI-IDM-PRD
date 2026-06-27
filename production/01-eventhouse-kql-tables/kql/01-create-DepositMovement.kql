@@ -26,7 +26,6 @@
 // CSV ingestion mapping — ordinals 0..10 are data columns (from the CSV),
 // ordinals 11..14 are system columns supplied by Copy Activity "Additional columns".
 .create table DepositMovement ingestion csv mapping 'DepositMovement_mapping'
-```
 [
   {"Column":"Date",                 "Properties":{"Ordinal":"0"}},
   {"Column":"Time",                 "Properties":{"Ordinal":"1"}},
@@ -44,7 +43,6 @@
   {"Column":"pipeline_name",        "Properties":{"Ordinal":"13"}},
   {"Column":"pipeline_runid",       "Properties":{"Ordinal":"14"}}
 ]
-```
 
 // Enable streaming ingestion (low-latency append for real-time dashboards/alerts)
 .alter-merge database DepositMovement policy streamingingestion '{ "IsEnabled": true }'
