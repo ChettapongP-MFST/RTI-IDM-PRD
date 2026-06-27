@@ -2,9 +2,9 @@
 // Production 03 — 05 Create Materialized View: Summary_Alert_Channel_MV
 // ============================================================
 // Option B: Automatic incremental aggregation via KQL materialized view.
-// Produces the same Date + Time + Product + Channel + Channel_Group summaries as the
-// stored function
-// (Option A), including UpdatedAtUtc via max(load_ts) for freshness tracking.
+// Produces the same Date + Product + Channel + Channel_Group summaries as the
+// stored function (Option A) — Time aggregated via max(Time),
+// including UpdatedAtUtc via max(load_ts) for freshness tracking.
 // KQL manages the incremental processing automatically — no pipeline step needed.
 //
 // Production note: source schema has NO Transaction_Type column. Counts use
@@ -24,8 +24,9 @@
         Credit_Transaction = sum(Credit_Transaction),
         Debit_Transaction  = sum(Debit_Transaction),
         Total_Transaction  = sum(Total_Transaction),
+        Time               = max(Time),
         UpdatedAtUtc       = max(load_ts)
-        by Date, Time, Product, Channel, Channel_Group
+        by Date, Product, Channel, Channel_Group
 }
 
 // Verify the materialized view exists and is healthy

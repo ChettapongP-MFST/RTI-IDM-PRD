@@ -44,7 +44,7 @@
 Summary_Alert_Channel | summarize Rows_ = count()
 
 Summary_Alert_Channel
-| summarize arg_max(UpdatedAtUtc, *) by Date, Time, Product, Channel, Channel_Group
+| summarize arg_max(UpdatedAtUtc, *) by Date, Product, Channel, Channel_Group
 | order by Date desc, Time asc, Channel asc
 | take 20
 
@@ -58,7 +58,7 @@ Summary_Alert_Channel
 | project Name, IsHealthy, IsEnabled, MaterializedTo, LastRun
 
 // ============================================================
-// 7. Query the materialized view (single row per Date+Time+Product+Channel+Channel_Group)
+// 7. Query the materialized view (single row per Date+Product+Channel+Channel_Group)
 // ============================================================
 Summary_Alert_Channel_MV
 | order by Date desc, Time asc, Channel asc

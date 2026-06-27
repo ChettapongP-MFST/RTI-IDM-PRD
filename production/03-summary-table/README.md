@@ -23,7 +23,7 @@ Bronze (DepositMovement)  ──►  Stored Function / Materialized View  ──
 | Column | Type | Purpose |
 |---|---|---|
 | `Date` | `datetime` | Business date (e.g. 2026-06-15) — group key |
-| `Time` | `string` | Time window (e.g. `09:45-10:00`) — group key |
+| `Time` | `string` | `max(Time)` |
 | `Product` | `string` | Product dimension — group key |
 | `Channel` | `string` | Channel dimension — group key |
 | `Channel_Group` | `string` | Channel group dimension — group key |
@@ -35,7 +35,7 @@ Bronze (DepositMovement)  ──►  Stored Function / Materialized View  ──
 | `Total_Transaction` | `long` | `sum(Total_Transaction)` |
 | `UpdatedAtUtc` | `datetime` | When the summary was last recalculated |
 
-> **Production difference:** the source has **no `Transaction_Type` column**, and amounts are KQL **`decimal`** (not `real`). Column names mirror the Bronze source; rows are grouped by `Date` + `Time` + `Product` + `Channel` + `Channel_Group`.
+> **Production difference:** the source has **no `Transaction_Type` column**, and amounts are KQL **`decimal`** (not `real`). Column names mirror the Bronze source; rows are grouped by `Date` + `Product` + `Channel` + `Channel_Group`, with `Time` aggregated via `max(Time)`.
 
 ---
 
@@ -78,8 +78,9 @@ Step 1  RecentDates = DepositMovement | where load_ts == pipeline_load_ts | dist
 Step 2  RecentDates | join kind=inner DepositMovement on Date     // full day, not just new rows
 Step 3  summarize Credit_Amount=sum(Credit_Amount), Debit_Amount=sum(Debit_Amount),
                   Net_Amount=sum(Net_Amount), Credit_Transaction=sum(Credit_Transaction),
-                  Debit_Transaction=sum(Debit_Transaction), Total_Transaction=sum(Total_Transaction)
-                  by Date, Time, Product, Channel, Channel_Group
+                  Debit_Transaction=sum(Debit_Transaction), Total_Transaction=sum(Total_Transaction),
+                  Time=max(Time)
+                  by Date, Product, Channel, Channel_Group
 Step 4  extend UpdatedAtUtc = now()
 ```
 
@@ -103,7 +104,7 @@ In the pipeline (Production 04) the KQL Activity passes the pipeline variable:
 
 > **Append, not upsert.** Re-running for the same key adds rows; the latest by `UpdatedAtUtc` is current. Downstream queries should pick the latest:
 > ```kusto
-> Summary_Alert_Channel | summarize arg_max(UpdatedAtUtc, *) by Date, Time, Product, Channel, Channel_Group
+> Summary_Alert_Channel | summarize arg_max(UpdatedAtUtc, *) by Date, Product, Channel, Channel_Group
 > ```
 
 ---
@@ -127,8 +128,9 @@ Run:
         Credit_Transaction = sum(Credit_Transaction),
         Debit_Transaction  = sum(Debit_Transaction),
         Total_Transaction  = sum(Total_Transaction),
+        Time               = max(Time),
         UpdatedAtUtc       = max(load_ts)
-        by Date, Time, Product, Channel, Channel_Group
+        by Date, Product, Channel, Channel_Group
 }
 ```
 
@@ -157,7 +159,7 @@ Run the verification script:
 | 4 | Preview function output | rows returned, no write |
 | 5 | Row count + latest-per-key | dedup via `arg_max(UpdatedAtUtc, *)` |
 | 6 / 6b | Materialized view (Option B) | `IsHealthy = true` |
-| 7 | Query the view | one row per Date+Time+Product+Channel+Channel_Group |
+| 7 | Query the view | one row per Date+Product+Channel+Channel_Group |
 | 8 | Reconcile Gold vs Bronze | totals match for a date |
 
 Each `.show` command has a clean table-format **"b"** companion (using `todynamic(...)`), consistent with Production 01's verify script.
@@ -168,7 +170,7 @@ Each `.show` command has a clean table-format **"b"** companion (using `todynami
 
 | Aspect | Workshop 03 | Production 03 |
 |---|---|---|
-| **Source schema** | included `Transaction_Type` | **removed** — groups by Date+Time+Product+Channel+Channel_Group |
+| **Source schema** | included `Transaction_Type` | **removed** — groups by Date+Product+Channel+Channel_Group (Time via `max(Time)`) |
 | **Amount totals** | `real` | **`decimal`** (matches Bronze `decimal` columns) |
 | **Txn count source** | `Total_Txn` | **`Total_Transaction`** |
 | **Verify script** | inline checks | dedicated [06-verify-Summary_Alert_Channel.kql](kql/06-verify-Summary_Alert_Channel.kql) with clean "b" tables |
