@@ -44,7 +44,7 @@
 Summary_Alert_Channel | summarize Rows_ = count()
 
 Summary_Alert_Channel
-| summarize arg_max(UpdatedAtUtc, *) by Date, Product, Channel_Group, Channel
+| summarize arg_max(UpdatedAtUtc, *) by Date, Product, Channel, Channel_Group
 | order by Date desc, Time asc, Channel asc
 | take 20
 

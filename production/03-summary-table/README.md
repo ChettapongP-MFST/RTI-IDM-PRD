@@ -24,20 +24,20 @@ Bronze (DepositMovement)  ──►  Stored Function / Materialized View  ──
 |---|---|---|
 | `Date` | `datetime` | Business date (e.g. 2026-06-15) — group key |
 | `Time` | `string` | `max(Time)` |
-| `UpdatedAtUtc` | `datetime` | When the summary was last recalculated |
 | `Product` | `string` | Product dimension — group key |
-| `Channel_Group` | `string` | Channel group dimension — group key |
 | `Channel` | `string` | Channel dimension — group key |
+| `Channel_Group` | `string` | Channel group dimension — group key |
 | `Credit_Amount` | `decimal` | `sum(Credit_Amount)` |
 | `Debit_Amount` | `decimal` | `sum(Debit_Amount)` |
 | `Net_Amount` | `decimal` | `sum(Net_Amount)` |
 | `Credit_Transaction` | `long` | `sum(Credit_Transaction)` |
 | `Debit_Transaction` | `long` | `sum(Debit_Transaction)` |
 | `Total_Transaction` | `long` | `sum(Total_Transaction)` |
+| `UpdatedAtUtc` | `datetime` | When the summary was last recalculated |
 
-> **Production difference:** the source has **no `Transaction_Type` column**, and amounts are KQL **`decimal`** (not `real`). Column names mirror the Bronze source; rows are grouped by `Date` + `Product` + `Channel_Group` + `Channel`, with `Time` aggregated via `max(Time)`.
+> **Production difference:** the source has **no `Transaction_Type` column**, and amounts are KQL **`decimal`** (not `real`). Column names mirror the Bronze source; rows are grouped by `Date` + `Product` + `Channel` + `Channel_Group`, with `Time` aggregated via `max(Time)`.
 >
-> **Column order:** the **table** (Option A) and the **stored function** output use the order above (`Date, Time, UpdatedAtUtc, Product, Channel_Group, Channel, …`). The **materialized view** (Option B) cannot reproduce this exactly — a KQL MV schema is always **group keys first, then aggregates**, and a trailing `| project` is not permitted inside an MV definition. The MV's physical order is therefore `Date, Product, Channel_Group, Channel, Time, UpdatedAtUtc, Credit_Amount, …`; consumers project the desired order at query time.
+> **Column order:** the **table** (Option A) and the **stored function** output use the order above (`Date, Time, Product, Channel, Channel_Group, …, UpdatedAtUtc`). The **materialized view** (Option B) cannot reproduce this exactly — a KQL MV schema is always **group keys first, then aggregates**, and a trailing `| project` is not permitted inside an MV definition. The MV's physical order is therefore `Date, Product, Channel, Channel_Group, Time, Credit_Amount, …, UpdatedAtUtc`; consumers project the desired order at query time.
 
 ---
 
@@ -82,9 +82,9 @@ Step 3  summarize Credit_Amount=sum(Credit_Amount), Debit_Amount=sum(Debit_Amoun
                   Net_Amount=sum(Net_Amount), Credit_Transaction=sum(Credit_Transaction),
                   Debit_Transaction=sum(Debit_Transaction), Total_Transaction=sum(Total_Transaction),
                   Time=max(Time)
-                  by Date, Product, Channel_Group, Channel
+                  by Date, Product, Channel, Channel_Group
 Step 4  extend UpdatedAtUtc = now()
-Step 5  project Date, Time, UpdatedAtUtc, Product, Channel_Group, Channel, <amounts>, <counts>
+Step 5  project Date, Time, Product, Channel, Channel_Group, <amounts>, <counts>, UpdatedAtUtc
 ```
 
 > **Kusto design principle:** the function body is a **pure query** (no writes). Fabric Eventhouse has no `.create procedure` / `INSERT`. The write happens externally via `.set-or-append`.
@@ -107,7 +107,7 @@ In the pipeline (Production 04) the KQL Activity passes the pipeline variable:
 
 > **Append, not upsert.** Re-running for the same key adds rows; the latest by `UpdatedAtUtc` is current. Downstream queries should pick the latest:
 > ```kusto
-> Summary_Alert_Channel | summarize arg_max(UpdatedAtUtc, *) by Date, Product, Channel_Group, Channel
+> Summary_Alert_Channel | summarize arg_max(UpdatedAtUtc, *) by Date, Product, Channel, Channel_Group
 > ```
 
 ---
@@ -126,14 +126,14 @@ Run:
     DepositMovement
     | summarize
         Time               = max(Time),
-        UpdatedAtUtc       = max(load_ts),
         Credit_Amount      = sum(Credit_Amount),
         Debit_Amount       = sum(Debit_Amount),
         Net_Amount         = sum(Net_Amount),
         Credit_Transaction = sum(Credit_Transaction),
         Debit_Transaction  = sum(Debit_Transaction),
-        Total_Transaction  = sum(Total_Transaction)
-        by Date, Product, Channel_Group, Channel
+        Total_Transaction  = sum(Total_Transaction),
+        UpdatedAtUtc       = max(load_ts)
+        by Date, Product, Channel, Channel_Group
 }
 ```
 
