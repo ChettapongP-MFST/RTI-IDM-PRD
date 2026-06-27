@@ -6,7 +6,7 @@ Production event trigger configuration for:
 
 | Item | Value |
 |---|---|
-| Storage Account | `mockadlsidimdprd001` *(mock — production: `scbestmseasta001adlsprd`)* |
+| Storage Account | `mockadlsidimdprd001` |
 | Container | `inflowoutflow` |
 | Folder | `inbound/statement/` |
 | Event type | `Microsoft.Storage.BlobCreated` |

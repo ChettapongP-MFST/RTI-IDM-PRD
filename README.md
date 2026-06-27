@@ -52,7 +52,7 @@ Production-ready deployment based on the workshop series above. Each module maps
 | 06 | [Sample Data](production/06-sample-data/) | ⏳ Pending | Production-format sample files for testing |
 
 > **Production ADLS Gen2:**
-> - Storage Account: `scbestmseasta001adlsprd` · Container: `inflowoutflow` · Folder: `inbound/statement/`
+> - Storage Account: `mockadlsidimdprd001` · Container: `inflowoutflow` · Folder: `inbound/statement/`
 >
 > **Production data spec changes from workshop:**
 > - Delimiter: comma `,` → **pipe `|`**

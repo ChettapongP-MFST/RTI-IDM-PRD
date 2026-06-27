@@ -52,7 +52,7 @@ Fill in these values before starting — every later module references them.
 | Azure Subscription Name | `PPCorpExternal3` |
 | Resource Group | `RG-RTI-IDM-PRD` |
 | Region | `West US 3` |
-| **Storage Account name** (production ADLS Gen2) | `mockadlsidimdprd001` *(mock — production: `scbestmseasta001adlsprd`)* |
+| **Storage Account name** (production ADLS Gen2) | `mockadlsidimdprd001` |
 | **Container name** | `inflowoutflow` |
 | **Incoming folder prefix** | `inbound/statement/` |
 | Fabric Workspace name | `RTI-IDM-PRD` |
@@ -113,7 +113,7 @@ Fill in these values before starting — every later module references them.
 ### P0.6.2 Assign EventGrid EventSubscription Contributor
 
 > 🔑 **Why this role is required for production:**  
-> The production event trigger (Production 05) creates an **Event Grid subscription** on storage account **`scbestmseasta001adlsprd`** to listen for `Microsoft.Storage.BlobCreated` events scoped to container **`inflowoutflow`** / folder **`inbound/statement/`**. Fabric must call the Azure Event Grid API to register this subscription. Without the **EventGrid EventSubscription Contributor** role assigned to the **user account** performing the setup, the "Connect" step in the Fabric trigger wizard will fail with a permissions error.
+> The production event trigger (Production 05) creates an **Event Grid subscription** on storage account **`mockadlsidimdprd001`** to listen for `Microsoft.Storage.BlobCreated` events scoped to container **`inflowoutflow`** / folder **`inbound/statement/`**. Fabric must call the Azure Event Grid API to register this subscription. Without the **EventGrid EventSubscription Contributor** role assigned to the **user account** performing the setup, the "Connect" step in the Fabric trigger wizard will fail with a permissions error.
 
 1. Still on the **production storage account** → **Access control (IAM)** → **+ Add** → **Add role assignment**.
 2. **Role** tab: search **`EventGrid EventSubscription Contributor`** → select → **Next**.
@@ -175,7 +175,7 @@ This allows the firewall-enabled production ADLS Gen2 to accept traffic from the
 ```
 
 3. Fill in parameters:
-   - `storageAccountName` → **`scbestmseasta001adlsprd`**
+   - `storageAccountName` → **`mockadlsidimdprd001`**
    - `tenantId` → your Azure Tenant ID (from P0.3)
    - `fabricWorkspaceGuid` → your Fabric Workspace GUID (from P0.3)
 4. **Review + create** → **Create**.
