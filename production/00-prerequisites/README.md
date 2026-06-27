@@ -52,7 +52,7 @@ Fill in these values before starting — every later module references them.
 | Azure Subscription Name | `PPCorpExternal3` |
 | Resource Group | `RG-RTI-IDM-PRD` |
 | Region | `West US 3` |
-| **Storage Account name** (production ADLS Gen2) | `scbestmseasta001adlsprd` |
+| **Storage Account name** (production ADLS Gen2) | `mockadlsidimdprd001` *(mock — production: `scbestmseasta001adlsprd`)* |
 | **Container name** | `inflowoutflow` |
 | **Incoming folder prefix** | `inbound/statement/` |
 | Fabric Workspace name | `RTI-IDM-PRD` |
