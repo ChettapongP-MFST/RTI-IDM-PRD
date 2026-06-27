@@ -11,7 +11,7 @@ Build the hardened, idempotent Fabric Data Pipeline **`pl_ingest_DepositMovement
 
 ## P4.0 — What changed from the workshop
 
-This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflects the **production data spec** and **production storage**. Everything else (idempotency design, audit logic, Gold refresh) is identical.
+This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflects the **production data spec** and **production storage**. Everything else (idempotency design, audit logic, Gold materialized view) is identical.
 
 | Aspect | Workshop | **Production** |
 |---|---|---|
@@ -45,19 +45,21 @@ This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflect
 
 | Name | Type | Purpose |
 |---|---|---|
-| `vLoadTs` | String | **Freeze the clock** — one `@utcNow()` shared by Copy (`load_ts`) and the Gold recalculation, so they always match. |
+| `vLoadTs` | String | **Freeze the clock** — one `@utcNow()` written to `load_ts` for every row copied in the run, so the whole file shares one ingestion timestamp. |
 | `vFileName` | String | **Resolve the file name** from the trigger `Subject` path, or fall back to `pFileName` for manual runs. |
 
 ### Activities (execution order)
 
 ```
 [Set vLoadTs] → [Set vFileName] → [Get Metadata] → [Lookup ProcessedFiles] → [If Condition]
-        ├─ True  (new file):  Copy → Append Success → Recalculate Gold
+        ├─ True  (new file):  Copy → Append Success
         │                       └─ On Failure → Append Failed
         └─ False (duplicate): Append Skipped-Duplicate
 ```
 
 > **Goal — idempotent:** the pipeline can fire any number of times for the same file and produce the same result: one copy of the data, one `Success` audit row, zero errors.
+
+> **Gold is automatic:** the materialized view `mv_Summary_Product_Channel_Alert` (Production 03) aggregates `DepositMovement` incrementally — no Gold-refresh activity is needed in this pipeline.
 
 ---
 
@@ -287,23 +289,11 @@ VALUES (
 
 ---
 
-### P4.4.3d — True branch: `Recalculate Gold Summary` (KQL Activity)
+### P4.4.3d — Gold is automatic (no activity)
 
-Connect **On Success** from `Append Success`.
+The Gold layer is the materialized view **`mv_Summary_Product_Channel_Alert`** (Production 03). KQL refreshes it **incrementally and automatically** as new rows land in `DepositMovement`, so the pipeline needs **no** Gold-recalculation activity. After `Append Success`, the True branch is complete.
 
-| Setting | Value |
-|---|---|
-| Name | `Recalculate Gold Summary` |
-| Connection | **KQL Database** → `DepositMovement` |
-| Command type | **KQL Command** |
-
-```kusto
-.set-or-append Summary_Alert_Channel <| sp_Recalculate_Summary_Alert_Channel(datetime(@{variables('vLoadTs')}))
-```
-
-> Passes the exact `vLoadTs` to the stored function. It finds rows with that `load_ts`, takes their distinct dates, and re-aggregates only those dates into the 12-column Gold table — grouped by `Date, Time, Product, Channel, Channel_Group`.
->
-> **Using the materialized view instead?** Skip this activity — `mv_Summary_Product_Channel_Alert` refreshes automatically from `DepositMovement`.
+> Query the Gold layer any time via the view directly, or via the wrapper `Summary_Alert_Channel_Gold()` for the canonical column order. The view always returns correct totals (materialized data + uncommitted delta combined), even while the `MaterializedTo` watermark catches up.
 
 ---
 
@@ -357,11 +347,10 @@ SELECT TOP (5) * FROM dbo.ProcessedFiles ORDER BY IngestedAtUtc DESC;
 
 **Gold (KQL):**
 ```kql
-Summary_Alert_Channel
-| summarize arg_max(UpdatedAtUtc, *) by Date, Time, Product, Channel, Channel_Group
+mv_Summary_Product_Channel_Alert
 | count
 ```
-> Expect aggregated rows by the 5 group keys.
+> Expect one row per `Date, Product, Channel, Channel_Group` — the view auto-aggregates the new Bronze rows (no manual step).
 
 4. **Idempotency test** — re-run the same file → **no new Bronze rows**, just a new `Skipped-Duplicate` audit row.
 
@@ -374,9 +363,8 @@ Summary_Alert_Channel
 | Step | Target | Engine | Command |
 |---|---|---|---|
 | 1 | `DepositMovement` | KQL | `.clear table DepositMovement data` |
-| 2 | `Summary_Alert_Channel` | KQL (Option A) | `.clear table Summary_Alert_Channel data` |
-| 3 | `mv_Summary_Product_Channel_Alert` | KQL | *(auto-clears — just verify `.show materialized-view mv_Summary_Product_Channel_Alert`)* |
-| 4 | `dbo.ProcessedFiles` | T-SQL | `DELETE FROM dbo.ProcessedFiles;` |
+| 2 | `mv_Summary_Product_Channel_Alert` | KQL | *(auto-clears when Bronze is cleared — verify `.show materialized-view mv_Summary_Product_Channel_Alert`)* |
+| 3 | `dbo.ProcessedFiles` | T-SQL | `DELETE FROM dbo.ProcessedFiles;` |
 
 ---
 
@@ -387,7 +375,7 @@ Summary_Alert_Channel
 - [ ] 4 system columns (`load_ts`, `file_name`, `pipeline_name`, `pipeline_runid`) populated
 - [ ] Idempotency proven (re-run = `Skipped-Duplicate`, no new Bronze rows)
 - [ ] Failure path tested (missing file = `Failed` audit row)
-- [ ] Gold `Summary_Alert_Channel` refreshed after each successful ingestion
+- [ ] Gold materialized view `mv_Summary_Product_Channel_Alert` reflects each successful ingestion (auto-refresh — no pipeline step)
 
 → Proceed to **[Production 05 — Event Trigger](../05-event-trigger/)**
 
