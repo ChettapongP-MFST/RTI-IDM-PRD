@@ -22,30 +22,25 @@ Create the Eventhouse and KQL Database for the **intraday deposit movement** rea
 
 The production `DepositMovement` table has **11 data columns** (from the CSV) + **4 system columns** (injected by the pipeline) = **15 columns total**.
 
-### Data Columns (from CSV: ordinals 0–10)
+### Complete Schema Table (15 columns)
 
-| # | Column Name | Type | Source | Example |
-|---|---|---|---|---|
-| 0 | `Date` | `datetime` | CSV column 0 | `2026-06-15` |
-| 1 | `Time` | `string` | CSV column 1 | `09:45-10:00` |
-| 2 | `Product` | `string` | CSV column 2 | `S` (Fixed, Saving, Current) |
-| 3 | `Channel` | `string` | CSV column 3 | `ATM` |
-| 4 | `Channel_Group` | `string` | CSV column 4 | `Offline` |
-| 5 | `Credit_Amount` | `decimal(16,2)` | CSV column 5 | `9000000.00` |
-| 6 | `Debit_Amount` | `decimal(16,2)` | CSV column 6 | `5000000.00` |
-| 7 | `Net_Amount` | `decimal(16,2)` | CSV column 7 | `4000000.00` |
-| 8 | `Credit_Transaction` | `long` | CSV column 8 | `1000` |
-| 9 | `Debit_Transaction` | `long` | CSV column 9 | `500` |
-| 10 | `Total_Transaction` | `long` | CSV column 10 | `1500` |
-
-### System Columns (injected by pipeline: ordinals 11–14)
-
-| # | Column Name | Type | Source | Injected by | Example |
-|---|---|---|---|---|
-| 11 | `load_ts` | `datetime` | — | Pipeline `utcNow()` | `2026-06-28T17:09:47Z` |
-| 12 | `file_name` | `string` | — | Pipeline `$$FILEPATH` | `inbound/statement/INTRADAY_SUMMARY_...CSV` |
-| 13 | `pipeline_name` | `string` | — | Pipeline `@pipeline().Pipeline` | `pl_ingest_DepositMovement` |
-| 14 | `pipeline_runid` | `string` | — | Pipeline `@pipeline().RunId` | `UUID-like string` |
+| Ord | Column Name | Type | Category | Source | Example |
+|---|---|---|---|---|---|
+| 0 | `Date` | `datetime` | Data | CSV column 0 | `2026-06-15` |
+| 1 | `Time` | `string` | Data | CSV column 1 | `09:45-10:00` |
+| 2 | `Product` | `string` | Data | CSV column 2 | `S` (Fixed, Saving, Current) |
+| 3 | `Channel` | `string` | Data | CSV column 3 | `ATM` |
+| 4 | `Channel_Group` | `string` | Data | CSV column 4 | `Offline` |
+| 5 | `Credit_Amount` | `decimal(16,2)` | Data | CSV column 5 | `9000000.00` |
+| 6 | `Debit_Amount` | `decimal(16,2)` | Data | CSV column 6 | `5000000.00` |
+| 7 | `Net_Amount` | `decimal(16,2)` | Data | CSV column 7 | `4000000.00` |
+| 8 | `Credit_Transaction` | `long` | Data | CSV column 8 | `1000` |
+| 9 | `Debit_Transaction` | `long` | Data | CSV column 9 | `500` |
+| 10 | `Total_Transaction` | `long` | Data | CSV column 10 | `1500` |
+| 11 | `load_ts` | `datetime` | System | Pipeline `utcNow()` | `2026-06-28T17:09:47Z` |
+| 12 | `file_name` | `string` | System | Pipeline `$$FILEPATH` | `inbound/statement/INTRADAY_SUMMARY_...CSV` |
+| 13 | `pipeline_name` | `string` | System | Pipeline `@pipeline().Pipeline` | `pl_ingest_DepositMovement` |
+| 14 | `pipeline_runid` | `string` | System | Pipeline `@pipeline().RunId` | `12345678-abcd-ef01-2345-6789abcdef00` |
 
 > **Key differences from workshop:**
 > - `Transaction_Type` column **removed** ✂️
