@@ -147,10 +147,12 @@ This gives **file-level idempotency** in the Warehouse, complementing the KQL `i
 
 Before proceeding to **[Production 03](../03-summary-table/)**, verify:
 
-- [ ] Warehouse `wh_control_framework` exists in the **RTI-IDM-PRD** workspace
-- [ ] Table `dbo.ProcessedFiles` exists with **8 columns**
-- [ ] Stored procedure `dbo.usp_LogProcessedFile` exists
-- [ ] `SELECT COUNT(*) FROM dbo.ProcessedFiles` returns **0** (empty, awaiting pipeline)
+- [x] Warehouse `wh_control_framework` exists in the **RTI-IDM-PRD** workspace
+- [x] Table `dbo.ProcessedFiles` exists with **8 columns**
+- [x] Stored procedure `dbo.usp_LogProcessedFile` exists
+- [x] `SELECT COUNT(*) FROM dbo.ProcessedFiles` returns **0** (empty, awaiting pipeline)
+
+> ✅ **Verified live** against `wh_control_framework` — table + proc created, smoke test (log → read → delete) passed, final row count 0.
 
 ---
 

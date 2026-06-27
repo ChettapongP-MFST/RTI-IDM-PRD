@@ -45,7 +45,7 @@ Production-ready deployment based on the workshop series above. Each module maps
 |---|---|---|---|
 | 00 | [Prerequisites & Trusted Workspace Access](production/00-prerequisites/) | ✅ Done | Azure / Fabric readiness + RBAC (incl. **EventGrid EventSubscription Contributor**) + Trusted Workspace Access |
 | 01 | [Eventhouse KQL Tables](production/01-eventhouse-kql-tables/) | 🔧 In Progress | Production table `DepositMovement` — updated schema (11 cols, pipe-delimited mapping) |
-| 02 | [Warehouse Control Table](production/02-warehouse-control/) | 🔧 In Progress | `dbo.ProcessedFiles` audit/control table |
+| 02 | [Warehouse Control Table](production/02-warehouse-control/) | ✅ Done | `dbo.ProcessedFiles` audit/control table + logging proc (verified live) |
 | 03 | [Summary Table (Gold)](production/03-summary-table/) | ⏳ Pending | `Summary_Alert_Channel` — updated for removed `Transaction_Type` column |
 | 04 | [Data Pipeline](production/04-data-pipeline/) | ⏳ Pending | Updated Copy Activity — pipe delimiter, no header, new column mapping |
 | 05 | [Event Trigger](production/05-event-trigger/) | ⏳ Pending | Production event trigger — updated storage/container/path config |
