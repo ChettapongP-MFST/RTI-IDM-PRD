@@ -37,6 +37,30 @@ This workshop series walks through building that solution end-to-end.
 
 ---
 
+## Production Modules
+
+Production-ready deployment based on the workshop series above. Each module maps 1-to-1 with a workshop but reflects the **actual production data spec** (pipe-delimited, no-header, 11-column `INTRADAY_SUMMARY` files) and updated infrastructure decisions.
+
+| # | Module | Status | Description |
+|---|---|---|---|
+| 01 | [Eventhouse KQL Tables](production/01-eventhouse-kql-tables/) | 🔧 In Progress | Production table `DepositMovement` — updated schema (11 cols, pipe-delimited mapping) |
+| 02 | [Warehouse Control Table](production/02-warehouse-control/) | ⏳ Pending | `dbo.ProcessedFiles` audit/control table |
+| 03 | [Summary Table (Gold)](production/03-summary-table/) | ⏳ Pending | `Summary_Alert_Channel` — updated for removed `Transaction_Type` column |
+| 04 | [Data Pipeline](production/04-data-pipeline/) | ⏳ Pending | Updated Copy Activity — pipe delimiter, no header, new column mapping |
+| 05 | [Event Trigger](production/05-event-trigger/) | ⏳ Pending | Production event trigger — updated storage/container/path config |
+| 06 | [Sample Data](production/06-sample-data/) | ⏳ Pending | Production-format sample files for testing |
+
+> **Production data spec changes from workshop:**
+> - Delimiter: comma `,` → **pipe `|`**
+> - Header row: yes → **no header** (data starts at row 1)
+> - File naming: `mock_HHMM_HHMM.csv` → **`INTRADAY_SUMMARY_YYYYMMDD_HHMM_HHMM.CSV`**
+> - Time interval: 30 min → **15 min**
+> - Column removed: `Transaction_Type`
+> - Columns renamed: `Credit_Txn` → `Credit_Transaction`, `Debit_Txn` → `Debit_Transaction`, `Total_Txn` → `Total_Transaction`
+> - Amount types: integer → **Decimal(16,2)**
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -63,7 +87,7 @@ This workshop series walks through building that solution end-to-end.
 
 ```
 RTI-IntradayDepositMovement/
-├── workshops/
+├── workshops/                          # 🎓 Hands-on workshop series (Pattern B)
 │   ├── 00-prerequisites/
 │   │   └── scripts/
 │   ├── 01-provision-adls-gen2/
@@ -78,11 +102,23 @@ RTI-IntradayDepositMovement/
 │   ├── 06-simulate-ingestion/
 │   │   └── scripts/
 │   ├── 07-powerbi-report/
-│   ├── 08-activator-alerts/
 │   └── 08-activator-alerts/
+├── production/                         # 🚀 Production deployment modules
+│   ├── 01-eventhouse-kql-tables/
+│   │   └── kql/                        # Production KQL DDL (11-col, pipe-delimited)
+│   ├── 02-warehouse-control/
+│   │   └── sql/                        # Control table DDL
+│   ├── 03-summary-table/
+│   │   └── kql/                        # Gold layer (no Transaction_Type)
+│   ├── 04-data-pipeline/
+│   │   └── pipeline/                   # Pipeline JSON (pipe delimiter, no header)
+│   ├── 05-event-trigger/               # Production event trigger config
+│   └── 06-sample-data/                 # Production-format sample CSVs
 ├── resources/
-│   └── datasets/          # 16 mock CSVs (30-min intraday slots)
-├── images/                # Architecture diagrams & screenshots
+│   ├── datasets/                       # Workshop mock CSVs (30-min, comma-delimited)
+│   └── prd_datasets/                   # Production sample CSVs (15-min, pipe-delimited)
+├── images/                             # Architecture diagrams & screenshots
+├── chat_history.md                     # Session activity log
 ├── .gitignore
 ├── LICENSE
 └── README.md
