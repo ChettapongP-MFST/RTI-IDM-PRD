@@ -38,6 +38,8 @@ Bronze (DepositMovement)  ──►  Stored Function / Materialized View  ──
 > **Production difference:** the source has **no `Transaction_Type` column**, and amounts are KQL **`decimal`** (not `real`). Column names mirror the Bronze source; rows are grouped by `Date` + `Product` + `Channel` + `Channel_Group`, with `Time` aggregated via `max(Time)`.
 >
 > **Column order:** the **table** (Option A) and the **stored function** output use the order above (`Date, Time, Product, Channel, Channel_Group, …, UpdatedAtUtc`). The **materialized view** (Option B) cannot reproduce this exactly — a KQL MV schema is always **group keys first, then aggregates**, and a trailing `| project` is not permitted inside an MV definition. The MV's physical order is therefore `Date, Product, Channel, Channel_Group, Time, Credit_Amount, …, UpdatedAtUtc`; consumers project the desired order at query time.
+>
+> **Wrapper function:** `Summary_Alert_Channel_Gold()` (see `kql/07-create-Summary_Alert_Channel_Gold-wrapper.kql`) projects the MV to the canonical column order. Use it instead of querying `Summary_Alert_Channel_MV` directly wherever the exact order matters (Power BI, exports).
 
 ---
 
