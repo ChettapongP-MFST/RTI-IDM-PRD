@@ -1,5 +1,5 @@
 // ============================================================
-// Production 03 — 05 Create Materialized View: Summary_Alert_Channel_MV
+// Production 03 — 05 Create Materialized View: mv_Summary_Product_Channel_Alert
 // ============================================================
 // Option B: Automatic incremental aggregation via KQL materialized view.
 // Produces the same Date + Product + Channel_Group + Channel summaries as the
@@ -22,7 +22,7 @@
 // Remove backfill if DepositMovement is empty at creation time.
 // ============================================================
 
-.create materialized-view with (backfill=true) Summary_Alert_Channel_MV on table DepositMovement
+.create materialized-view with (backfill=true) mv_Summary_Product_Channel_Alert on table DepositMovement
 {
     DepositMovement
     | summarize
@@ -38,4 +38,4 @@
 }
 
 // Verify the materialized view exists and is healthy
-.show materialized-view Summary_Alert_Channel_MV
+.show materialized-view mv_Summary_Product_Channel_Alert

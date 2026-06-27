@@ -303,7 +303,7 @@ Connect **On Success** from `Append Success`.
 
 > Passes the exact `vLoadTs` to the stored function. It finds rows with that `load_ts`, takes their distinct dates, and re-aggregates only those dates into the 12-column Gold table — grouped by `Date, Time, Product, Channel, Channel_Group`.
 >
-> **Using Option B (materialized view) instead?** Skip this activity — `Summary_Alert_Channel_MV` refreshes automatically from `DepositMovement`.
+> **Using the materialized view instead?** Skip this activity — `mv_Summary_Product_Channel_Alert` refreshes automatically from `DepositMovement`.
 
 ---
 
@@ -375,7 +375,7 @@ Summary_Alert_Channel
 |---|---|---|---|
 | 1 | `DepositMovement` | KQL | `.clear table DepositMovement data` |
 | 2 | `Summary_Alert_Channel` | KQL (Option A) | `.clear table Summary_Alert_Channel data` |
-| 3 | `Summary_Alert_Channel_MV` | KQL (Option B) | *(auto-clears — just verify `.show materialized-view Summary_Alert_Channel_MV`)* |
+| 3 | `mv_Summary_Product_Channel_Alert` | KQL | *(auto-clears — just verify `.show materialized-view mv_Summary_Product_Channel_Alert`)* |
 | 4 | `dbo.ProcessedFiles` | T-SQL | `DELETE FROM dbo.ProcessedFiles;` |
 
 ---

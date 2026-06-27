@@ -3,7 +3,7 @@
 // ============================================================
 // Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit)
 //
-// Purpose: expose the materialized view Summary_Alert_Channel_MV (Option B) with
+// Purpose: expose the materialized view mv_Summary_Product_Channel_Alert with
 // the EXACT requested column order. A KQL materialized view's physical schema is
 // always GROUP KEYS first, then aggregates, and a trailing | project is not
 // permitted inside an MV definition — so the MV itself stores:
@@ -20,7 +20,7 @@
 .create-or-alter function with (docstring = "Materialized-view Gold summary projected to the canonical column order", folder = "Gold")
 Summary_Alert_Channel_Gold()
 {
-    Summary_Alert_Channel_MV
+    mv_Summary_Product_Channel_Alert
     | project Date, Time, Product, Channel, Channel_Group,
               Credit_Amount, Debit_Amount, Net_Amount,
               Credit_Transaction, Debit_Transaction, Total_Transaction, UpdatedAtUtc

@@ -49,18 +49,18 @@ Summary_Alert_Channel
 | take 20
 
 // ============================================================
-// 6. Materialized view exists (Option B)
+// 6. Materialized view exists
 // ============================================================
-.show materialized-view Summary_Alert_Channel_MV
+.show materialized-view mv_Summary_Product_Channel_Alert
 
 // 6b. Health/lag as a clean table
-.show materialized-view Summary_Alert_Channel_MV
+.show materialized-view mv_Summary_Product_Channel_Alert
 | project Name, IsHealthy, IsEnabled, MaterializedTo, LastRun
 
 // ============================================================
 // 7. Query the materialized view (single row per Date+Product+Channel+Channel_Group)
 // ============================================================
-Summary_Alert_Channel_MV
+mv_Summary_Product_Channel_Alert
 | order by Date desc, Time asc, Channel asc
 | take 20
 
@@ -72,7 +72,7 @@ Summary_Alert_Channel_MV
 // DepositMovement
 // | where Date == d
 // | summarize Bronze_Credit = sum(Credit_Amount), Bronze_Debit = sum(Debit_Amount), Bronze_Txn = sum(Total_Transaction);
-// Summary_Alert_Channel_MV
+// mv_Summary_Product_Channel_Alert
 // | where Date == d
 // | summarize Gold_Credit = sum(Credit_Amount), Gold_Debit = sum(Debit_Amount), Gold_Txn = sum(Total_Transaction);
 
