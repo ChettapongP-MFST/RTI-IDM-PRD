@@ -125,9 +125,14 @@ Production intraday monitoring needs **seconds**, so streaming is **critical**.
 
 ## P1.4 — Verify Table & Mapping
 
-After running the script, confirm everything was created:
+After running the script, confirm everything was created.
 
-**In the KQL query pane, run:**
+**Run the full verification script:** [`kql/02-verify-DepositMovement.kql`](kql/02-verify-DepositMovement.kql)
+
+This script contains every check below plus clean table-format ("`b`") versions
+that flatten the JSON output into readable columns (schema, mappings, and all policies).
+
+**Or, in the KQL query pane, run the quick checks:**
 
 ```kusto
 // See the table schema
