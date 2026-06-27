@@ -47,16 +47,19 @@ Fill in these values before starting — every later module references them.
 
 | Item | Value |
 |---|---|
-| Azure Tenant ID | `___________________________________` |
-| Azure Subscription ID | `___________________________________` |
-| Resource Group | `___________________________________` |
-| Region | `___________________________________` |
+| Azure Tenant ID | `7908fa56-15cc-44d4-9e7e-15316b8f01e4` |
+| Azure Subscription ID | `2760ab47-add3-4866-be25-918020b1cab8` |
+| Azure Subscription Name | `PPCorpExternal3` |
+| Resource Group | `RG-RTI-IDM-PRD` |
+| Region | `West US 3` |
 | **Storage Account name** (production ADLS Gen2) | `scbestmseasta001adlsprd` |
 | **Container name** | `inflowoutflow` |
 | **Incoming folder prefix** | `inbound/statement/` |
-| Fabric Workspace name | `___________________________________` |
-| Fabric Workspace GUID | `___________________________________` |
-| Fabric Workspace Identity (object ID) | `___________________________________` |
+| Fabric Workspace name | `RTI-IDM-PRD` |
+| Fabric Workspace GUID | `f0cb703b-2ceb-4a73-a302-813057c06412` |
+| Fabric Capacity ID | `471d87a9-c1c3-41f3-9299-25993c5546c0` |
+| Fabric Capacity Region | `West US 3` |
+| Fabric Workspace Identity (object ID) | `⚠️ Not provisioned yet — complete step P0.5` |
 | Eventhouse name | `___________________________________` |
 | KQL Database name | `___________________________________` |
 | Fabric Warehouse name | `___________________________________` |
