@@ -15,6 +15,18 @@
 .show table DepositMovement ingestion csv mappings
 
 // ============================================================================
+// 2b. Check ingestion mapping — expanded as a clean table (one row per column)
+// ============================================================================
+// Expected: 15 rows, Column + Ordinal 0-14, sorted ascending.
+// The mapping JSON fields are "Name" and "Ordinal" (not "Column").
+.show table DepositMovement ingestion csv mappings
+| mv-expand m = todynamic(Mapping)
+| project Mapping = Name,
+          Column  = tostring(m.Name),
+          Ordinal = toint(m.Ordinal)
+| sort by Ordinal asc
+
+// ============================================================================
 // 3. Check streaming ingestion status (database level)
 // ============================================================================
 // Expected: IsEnabled: true
