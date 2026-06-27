@@ -2,9 +2,17 @@
 // Production 03 — 05 Create Materialized View: Summary_Alert_Channel_MV
 // ============================================================
 // Option B: Automatic incremental aggregation via KQL materialized view.
-// Produces the same Date + Product + Channel + Channel_Group summaries as the
+// Produces the same Date + Product + Channel_Group + Channel summaries as the
 // stored function (Option A) — Time aggregated via max(Time),
-// including UpdatedAtUtc via max(load_ts) for freshness tracking.
+// UpdatedAtUtc via max(load_ts) for freshness tracking.
+//
+// Column-order note: a materialized view's schema is always GROUP KEYS first,
+// then the aggregates in declared order. KQL does NOT allow a trailing | project
+// inside an MV definition, so the interleaved table order
+// (Date, Time, UpdatedAtUtc, Product, ...) cannot be reproduced physically here.
+// Closest achievable order: keys (Date, Product, Channel_Group, Channel) then
+// aggregates (Time, UpdatedAtUtc, amounts, counts). Downstream consumers can
+// project the exact order when querying.
 // KQL manages the incremental processing automatically — no pipeline step needed.
 //
 // Production note: source schema has NO Transaction_Type column. Counts use
@@ -18,15 +26,15 @@
 {
     DepositMovement
     | summarize
+        Time               = max(Time),
+        UpdatedAtUtc       = max(load_ts),
         Credit_Amount      = sum(Credit_Amount),
         Debit_Amount       = sum(Debit_Amount),
         Net_Amount         = sum(Net_Amount),
         Credit_Transaction = sum(Credit_Transaction),
         Debit_Transaction  = sum(Debit_Transaction),
-        Total_Transaction  = sum(Total_Transaction),
-        Time               = max(Time),
-        UpdatedAtUtc       = max(load_ts)
-        by Date, Product, Channel, Channel_Group
+        Total_Transaction  = sum(Total_Transaction)
+        by Date, Product, Channel_Group, Channel
 }
 
 // Verify the materialized view exists and is healthy

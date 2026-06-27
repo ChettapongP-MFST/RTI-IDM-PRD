@@ -12,16 +12,16 @@
 .create table Summary_Alert_Channel (
     Date:                datetime,
     Time:                string,
+    UpdatedAtUtc:        datetime,
     Product:             string,
-    Channel:             string,
     Channel_Group:       string,
+    Channel:             string,
     Credit_Amount:       decimal,
     Debit_Amount:        decimal,
     Net_Amount:          decimal,
     Credit_Transaction:  long,
     Debit_Transaction:   long,
-    Total_Transaction:   long,
-    UpdatedAtUtc:        datetime
+    Total_Transaction:   long
 )
 
 // Enable streaming ingestion for low-latency updates

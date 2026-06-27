@@ -35,6 +35,9 @@ sp_Recalculate_Summary_Alert_Channel(pipeline_load_ts: datetime)
         Time               = max(Time)
         by Date, Product, Channel, Channel_Group
     | extend UpdatedAtUtc = now()
+    | project Date, Time, UpdatedAtUtc, Product, Channel_Group, Channel,
+              Credit_Amount, Debit_Amount, Net_Amount,
+              Credit_Transaction, Debit_Transaction, Total_Transaction
 }
 
 // ============================================================
