@@ -51,9 +51,9 @@ Fill in these values before starting — every later module references them.
 | Azure Subscription ID | `___________________________________` |
 | Resource Group | `___________________________________` |
 | Region | `___________________________________` |
-| **Storage Account name** (production ADLS Gen2) | `___________________________________` |
-| **Container name** | `___________________________________` |
-| **Incoming folder prefix** | `___________________________________` |
+| **Storage Account name** (production ADLS Gen2) | `scbestmseasta001adlsprd` |
+| **Container name** | `inflowoutflow` |
+| **Incoming folder prefix** | `inbound/statement/` |
 | Fabric Workspace name | `___________________________________` |
 | Fabric Workspace GUID | `___________________________________` |
 | Fabric Workspace Identity (object ID) | `___________________________________` |
@@ -110,7 +110,7 @@ Fill in these values before starting — every later module references them.
 ### P0.6.2 Assign EventGrid EventSubscription Contributor
 
 > 🔑 **Why this role is required for production:**  
-> The production event trigger (Production 05) creates an **Event Grid subscription** on the ADLS Gen2 storage account to listen for `Microsoft.Storage.BlobCreated` events. Fabric must call the Azure Event Grid API to register this subscription. Without the **EventGrid EventSubscription Contributor** role assigned to the **user account** performing the setup, the "Connect" step in the Fabric trigger wizard will fail with a permissions error.
+> The production event trigger (Production 05) creates an **Event Grid subscription** on storage account **`scbestmseasta001adlsprd`** to listen for `Microsoft.Storage.BlobCreated` events scoped to container **`inflowoutflow`** / folder **`inbound/statement/`**. Fabric must call the Azure Event Grid API to register this subscription. Without the **EventGrid EventSubscription Contributor** role assigned to the **user account** performing the setup, the "Connect" step in the Fabric trigger wizard will fail with a permissions error.
 
 1. Still on the **production storage account** → **Access control (IAM)** → **+ Add** → **Add role assignment**.
 2. **Role** tab: search **`EventGrid EventSubscription Contributor`** → select → **Next**.
@@ -171,7 +171,10 @@ This allows the firewall-enabled production ADLS Gen2 to accept traffic from the
 }
 ```
 
-3. Fill in: Subscription, Resource group, `storageAccountName`, `tenantId`, `fabricWorkspaceGuid`.
+3. Fill in parameters:
+   - `storageAccountName` → **`scbestmseasta001adlsprd`**
+   - `tenantId` → your Azure Tenant ID (from P0.3)
+   - `fabricWorkspaceGuid` → your Fabric Workspace GUID (from P0.3)
 4. **Review + create** → **Create**.
 
 ### Option B — Ask your Azure Admin

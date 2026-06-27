@@ -2,11 +2,19 @@
 
 > **Status:** ⏳ Pending
 
-Production event trigger configuration — updated storage account, container, folder path, and trigger mechanism.
+Production event trigger configuration for:
+
+| Item | Value |
+|---|---|
+| Storage Account | `scbestmseasta001adlsprd` |
+| Container | `inflowoutflow` |
+| Folder | `inbound/statement/` |
+| Event type | `Microsoft.Storage.BlobCreated` |
+| File filter | `*.CSV` |
 
 **Prerequisite:** [Production 04](../04-data-pipeline/)  
 **Next:** [Production 06 — Sample Data](../06-sample-data/)
 
 ---
 
-*Content coming in this module.*
+*Full step-by-step content coming in this module.*
