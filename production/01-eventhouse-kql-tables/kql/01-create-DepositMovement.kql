@@ -45,11 +45,10 @@
 ]
 
 // Enable streaming ingestion (low-latency append for real-time dashboards/alerts)
-.alter-merge database DepositMovement policy streamingingestion '{ "IsEnabled": true }'
 .alter table DepositMovement policy streamingingestion enable
 
 // Set retention and hot cache policies
 // Retention: Keep data for 365 days (auto-delete older data)
 // Hot cache: Last 90 days in fast storage (SSD/RAM), older data in cold storage
-.alter table DepositMovement policy retention '{ "SoftDeletePeriod": "365.00:00:00", "Recoverability": "Enabled" }'
+.alter table DepositMovement policy retention softdelete = 365d recoverability = enabled
 .alter table DepositMovement policy caching hot = 90d
