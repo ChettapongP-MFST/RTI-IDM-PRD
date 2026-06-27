@@ -9,6 +9,16 @@
 .show table DepositMovement schema as json
 
 // ============================================================================
+// 1b. Check table schema — expanded as a clean table (one row per column)
+// ============================================================================
+// Expected: 15 rows showing ColumnName + DataType.
+.show table DepositMovement schema as json
+| project Cols = todynamic(Schema).OrderedColumns
+| mv-expand Cols
+| project ColumnName = tostring(Cols.Name),
+          DataType   = tostring(Cols.CslType)
+
+// ============================================================================
 // 2. Check ingestion mapping
 // ============================================================================
 // Expected: DepositMovement_mapping with ordinals 0-14
@@ -39,16 +49,42 @@
 .show table DepositMovement policy streamingingestion
 
 // ============================================================================
+// 4b. Streaming ingestion (table level) — expanded as a clean table
+// ============================================================================
+// Expected: IsEnabled = true
+.show table DepositMovement policy streamingingestion
+| project EntityName,
+          IsEnabled = tostring(todynamic(Policy).IsEnabled)
+
+// ============================================================================
 // 5. Check retention policy
 // ============================================================================
 // Expected: SoftDeletePeriod: 365 days
 .show table DepositMovement policy retention
 
 // ============================================================================
+// 5b. Retention policy — expanded as a clean table
+// ============================================================================
+// Expected: SoftDeletePeriod = 365.00:00:00, Recoverability = Enabled
+.show table DepositMovement policy retention
+| project EntityName,
+          SoftDeletePeriod = tostring(todynamic(Policy).SoftDeletePeriod),
+          Recoverability   = tostring(todynamic(Policy).Recoverability)
+
+// ============================================================================
 // 6. Check caching (hot) policy
 // ============================================================================
 // Expected: hot: 90d
 .show table DepositMovement policy caching
+
+// ============================================================================
+// 6b. Caching (hot) policy — expanded as a clean table
+// ============================================================================
+// Expected: DataHotSpan = 90.00:00:00, IndexHotSpan = 90.00:00:00
+.show table DepositMovement policy caching
+| project EntityName,
+          DataHotSpan  = tostring(todynamic(Policy).DataHotSpan.Value),
+          IndexHotSpan = tostring(todynamic(Policy).IndexHotSpan.Value)
 
 // ============================================================================
 // 7. Check table is empty and ready
