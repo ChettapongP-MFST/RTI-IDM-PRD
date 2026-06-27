@@ -43,6 +43,7 @@ Production-ready deployment based on the workshop series above. Each module maps
 
 | # | Module | Status | Description |
 |---|---|---|---|
+| 00 | [Prerequisites & Trusted Workspace Access](production/00-prerequisites/) | ✅ Done | Azure / Fabric readiness + RBAC (incl. **EventGrid EventSubscription Contributor**) + Trusted Workspace Access |
 | 01 | [Eventhouse KQL Tables](production/01-eventhouse-kql-tables/) | 🔧 In Progress | Production table `DepositMovement` — updated schema (11 cols, pipe-delimited mapping) |
 | 02 | [Warehouse Control Table](production/02-warehouse-control/) | ⏳ Pending | `dbo.ProcessedFiles` audit/control table |
 | 03 | [Summary Table (Gold)](production/03-summary-table/) | ⏳ Pending | `Summary_Alert_Channel` — updated for removed `Transaction_Type` column |
@@ -104,6 +105,8 @@ RTI-IntradayDepositMovement/
 │   ├── 07-powerbi-report/
 │   └── 08-activator-alerts/
 ├── production/                         # 🚀 Production deployment modules
+│   ├── 00-prerequisites/
+│   │   └── scripts/                    # ARM template + PowerShell helpers
 │   ├── 01-eventhouse-kql-tables/
 │   │   └── kql/                        # Production KQL DDL (11-col, pipe-delimited)
 │   ├── 02-warehouse-control/
