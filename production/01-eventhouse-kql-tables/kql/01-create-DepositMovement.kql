@@ -25,6 +25,10 @@
     pipeline_name:        string,
     pipeline_runid:       string
 )
+with (folder = "Bronze")
+
+// Place the table in the Bronze folder (idempotent — also applies to an existing table)
+.alter table DepositMovement folder "Bronze"
 
 // CSV ingestion mapping — ordinals 0..10 are data columns (from the CSV),
 // ordinals 11..14 are system columns supplied by Copy Activity "Additional columns".

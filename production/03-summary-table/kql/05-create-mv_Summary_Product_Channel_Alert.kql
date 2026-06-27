@@ -22,7 +22,7 @@
 // Remove backfill if DepositMovement is empty at creation time.
 // ============================================================
 
-.create materialized-view with (backfill=true) mv_Summary_Product_Channel_Alert on table DepositMovement
+.create materialized-view with (backfill=true, folder="Gold") mv_Summary_Product_Channel_Alert on table DepositMovement
 {
     DepositMovement
     | summarize
@@ -36,6 +36,9 @@
         UpdatedAtUtc       = max(load_ts)
         by Date, Product, Channel, Channel_Group
 }
+
+// Place the materialized view in the Gold folder (idempotent — also applies to an existing MV)
+.alter materialized-view mv_Summary_Product_Channel_Alert folder "Gold"
 
 // Verify the materialized view exists and is healthy
 .show materialized-view mv_Summary_Product_Channel_Alert
