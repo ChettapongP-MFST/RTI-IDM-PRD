@@ -1,0 +1,91 @@
+// Production 01 — Reference: Example Data Ingestion
+// This file shows what the ingestion pipeline will do:
+// 1. Read a pipe-delimited CSV from ADLS Gen2
+// 2. Add 4 system columns
+// 3. Map to the DepositMovement table via the ingestion mapping
+//
+// This is FOR REFERENCE ONLY - do not run this script.
+// The actual ingestion happens via Data Pipeline in Production 04.
+
+// ============================================================================
+// STEP 1: Raw CSV file format (11 columns, pipe-delimited, NO HEADER)
+// ============================================================================
+// Location: mockadlsidimdprd001 → inflowoutflow → inbound/statement/ → INTRADAY_SUMMARY_YYYYMMDD_HHMM_HHMM.CSV
+//
+// Line 1 (example): 
+// 2026-06-15|09:45-10:00|S|ATM|Offline|9000000.00|5000000.00|4000000.00|1000|500|1500
+//
+// ============================================================================
+// STEP 2: Data Pipeline "Additional Columns" inject 4 system columns
+// ============================================================================
+// The Copy Activity in Production 04 will add:
+// - load_ts:      utcNow()                = 2026-06-28T17:09:47.123456Z
+// - file_name:    $$FILEPATH              = inbound/statement/INTRADAY_SUMMARY_20260615_0945_1000.CSV
+// - pipeline_name: @pipeline().Pipeline   = pl_ingest_DepositMovement
+// - pipeline_runid: @pipeline().RunId     = 12345678-abcd-ef01-2345-6789abcdef00
+//
+// ============================================================================
+// STEP 3: After Copy Activity (15 columns total, ready for KQL mapping)
+// ============================================================================
+// Ordinal 0:  2026-06-15                                    → Date
+// Ordinal 1:  09:45-10:00                                   → Time
+// Ordinal 2:  S                                              → Product
+// Ordinal 3:  ATM                                            → Channel
+// Ordinal 4:  Offline                                        → Channel_Group
+// Ordinal 5:  9000000.00                                     → Credit_Amount
+// Ordinal 6:  5000000.00                                     → Debit_Amount
+// Ordinal 7:  4000000.00                                     → Net_Amount
+// Ordinal 8:  1000                                           → Credit_Transaction
+// Ordinal 9:  500                                            → Debit_Transaction
+// Ordinal 10: 1500                                           → Total_Transaction
+// Ordinal 11: 2026-06-28T17:09:47.123456Z                   → load_ts (system)
+// Ordinal 12: inbound/statement/INTRADAY_SUMMARY_...CSV     → file_name (system)
+// Ordinal 13: pl_ingest_DepositMovement                      → pipeline_name (system)
+// Ordinal 14: 12345678-abcd-ef01-2345-6789abcdef00          → pipeline_runid (system)
+//
+// ============================================================================
+// STEP 4: KQL ingestion mapping applies (DepositMovement_mapping)
+// ============================================================================
+// The mapping reads ordinals 0-14 and inserts into the corresponding columns:
+//
+// INSERT INTO DepositMovement (
+//   Date, Time, Product, Channel, Channel_Group,
+//   Credit_Amount, Debit_Amount, Net_Amount,
+//   Credit_Transaction, Debit_Transaction, Total_Transaction,
+//   load_ts, file_name, pipeline_name, pipeline_runid
+// ) VALUES (
+//   2026-06-15,
+//   '09:45-10:00',
+//   'S',
+//   'ATM',
+//   'Offline',
+//   9000000.00,
+//   5000000.00,
+//   4000000.00,
+//   1000,
+//   500,
+//   1500,
+//   2026-06-28T17:09:47.123456Z,
+//   'inbound/statement/INTRADAY_SUMMARY_20260615_0945_1000.CSV',
+//   'pl_ingest_DepositMovement',
+//   '12345678-abcd-ef01-2345-6789abcdef00'
+// )
+//
+// ============================================================================
+// STEP 5: Streaming ingestion makes the row queryable within seconds
+// ============================================================================
+// Once inserted, you can immediately query:
+//
+// DepositMovement
+// | where Date == 2026-06-15
+// | where Time == "09:45-10:00"
+// | project Date, Time, Product, Credit_Amount, load_ts
+//
+// Result:
+// Date         Time        Product  Credit_Amount  load_ts
+// 2026-06-15   09:45-10:00 S        9000000.00     2026-06-28T17:09:47.123Z
+//
+// ============================================================================
+
+// This reference shows the complete data flow.
+// For actual ingestion, proceed to Production 02 (Warehouse Control).

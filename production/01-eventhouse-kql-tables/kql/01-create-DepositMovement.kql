@@ -1,0 +1,57 @@
+// Production 01 — Create DepositMovement table + ingestion mapping
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit)
+//
+// Schema: 11 data columns (from CSV) + 4 system columns (from pipeline) = 15 total
+// CSV format: pipe-delimited, no header row
+// Example: 2026-06-15|09:45-10:00|S|ATM|Offline|9000000.00|5000000.00|4000000.00|1000|500|1500
+
+.create table DepositMovement (
+    Date:                 datetime,
+    Time:                 string,
+    Product:              string,
+    Channel:              string,
+    Channel_Group:        string,
+    Credit_Amount:        decimal(16,2),
+    Debit_Amount:         decimal(16,2),
+    Net_Amount:           decimal(16,2),
+    Credit_Transaction:   long,
+    Debit_Transaction:    long,
+    Total_Transaction:    long,
+    load_ts:              datetime,
+    file_name:            string,
+    pipeline_name:        string,
+    pipeline_runid:       string
+)
+
+// CSV ingestion mapping — ordinals 0..10 are data columns (from the CSV),
+// ordinals 11..14 are system columns supplied by Copy Activity "Additional columns".
+.create table DepositMovement ingestion csv mapping 'DepositMovement_mapping'
+```
+[
+  {"Column":"Date",                 "Properties":{"Ordinal":"0"}},
+  {"Column":"Time",                 "Properties":{"Ordinal":"1"}},
+  {"Column":"Product",              "Properties":{"Ordinal":"2"}},
+  {"Column":"Channel",              "Properties":{"Ordinal":"3"}},
+  {"Column":"Channel_Group",        "Properties":{"Ordinal":"4"}},
+  {"Column":"Credit_Amount",        "Properties":{"Ordinal":"5"}},
+  {"Column":"Debit_Amount",         "Properties":{"Ordinal":"6"}},
+  {"Column":"Net_Amount",           "Properties":{"Ordinal":"7"}},
+  {"Column":"Credit_Transaction",   "Properties":{"Ordinal":"8"}},
+  {"Column":"Debit_Transaction",    "Properties":{"Ordinal":"9"}},
+  {"Column":"Total_Transaction",    "Properties":{"Ordinal":"10"}},
+  {"Column":"load_ts",              "Properties":{"Ordinal":"11"}},
+  {"Column":"file_name",            "Properties":{"Ordinal":"12"}},
+  {"Column":"pipeline_name",        "Properties":{"Ordinal":"13"}},
+  {"Column":"pipeline_runid",       "Properties":{"Ordinal":"14"}}
+]
+```
+
+// Enable streaming ingestion (low-latency append for real-time dashboards/alerts)
+.alter-merge database DepositMovement policy streamingingestion '{ "IsEnabled": true }'
+.alter table DepositMovement policy streamingingestion enable
+
+// Set retention and hot cache policies
+// Retention: Keep data for 365 days (auto-delete older data)
+// Hot cache: Last 90 days in fast storage (SSD/RAM), older data in cold storage
+.alter table DepositMovement policy retention '{ "SoftDeletePeriod": "365.00:00:00", "Recoverability": "Enabled" }'
+.alter table DepositMovement policy caching hot = 90d

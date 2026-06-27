@@ -1,0 +1,51 @@
+// Production 01 — Verification Script
+// Run in the KQL Database "DepositMovement" after running 01-create-DepositMovement.kql
+// These queries confirm the table and mapping were created correctly
+
+// ============================================================================
+// 1. Check table schema
+// ============================================================================
+// Expected: 15 columns (11 data + 4 system)
+.show table DepositMovement schema as json
+
+// ============================================================================
+// 2. Check ingestion mapping
+// ============================================================================
+// Expected: DepositMovement_mapping with ordinals 0-14
+.show table DepositMovement ingestion csv mappings
+
+// ============================================================================
+// 3. Check streaming ingestion status (database level)
+// ============================================================================
+// Expected: IsEnabled: true
+.show database DepositMovement policy streamingingestion
+
+// ============================================================================
+// 4. Check streaming ingestion status (table level)
+// ============================================================================
+// Expected: IsEnabled: true
+.show table DepositMovement policy streamingingestion
+
+// ============================================================================
+// 5. Check retention policy
+// ============================================================================
+// Expected: SoftDeletePeriod: 365 days
+.show table DepositMovement policy retention
+
+// ============================================================================
+// 6. Check caching (hot) policy
+// ============================================================================
+// Expected: hot: 90d
+.show table DepositMovement policy caching
+
+// ============================================================================
+// 7. Check table is empty and ready
+// ============================================================================
+// Expected: 0 rows (table should be empty, awaiting pipeline ingestion)
+DepositMovement | count
+
+// ============================================================================
+// 8. Optional: Show column names for reference
+// ============================================================================
+// All 15 columns should be visible
+DepositMovement | project Date, Time, Product, Channel, Channel_Group, Credit_Amount, Debit_Amount, Net_Amount, Credit_Transaction, Debit_Transaction, Total_Transaction, load_ts, file_name, pipeline_name, pipeline_runid
