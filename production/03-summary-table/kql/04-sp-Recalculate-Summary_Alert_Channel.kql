@@ -21,15 +21,18 @@ sp_Recalculate_Summary_Alert_Channel(pipeline_load_ts: datetime)
         | where load_ts == pipeline_load_ts
         | distinct Date;
 
-    // Step 2: For each date in the batch, re-aggregate the FULL day by Time + Channel
+    // Step 2: For each date in the batch, re-aggregate the FULL day
+    //         by Time + Product + Channel + Channel_Group
     RecentDates
     | join kind=inner DepositMovement on Date
     | summarize
-        Credit_Total = sum(Credit_Amount),
-        Debit_Total  = sum(Debit_Amount),
-        Net_Amount   = sum(Net_Amount),
-        Txn_Count    = sum(Total_Transaction)
-        by Date, Time, Channel
+        Credit_Amount      = sum(Credit_Amount),
+        Debit_Amount       = sum(Debit_Amount),
+        Net_Amount         = sum(Net_Amount),
+        Credit_Transaction = sum(Credit_Transaction),
+        Debit_Transaction  = sum(Debit_Transaction),
+        Total_Transaction  = sum(Total_Transaction)
+        by Date, Time, Product, Channel, Channel_Group
     | extend UpdatedAtUtc = now()
 }
 

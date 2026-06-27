@@ -13,25 +13,29 @@ Bronze (DepositMovement)  ──►  Stored Function / Materialized View  ──
 
 ## P3.1 — Why a Gold table?
 
-`DepositMovement` (Bronze) stores **granular, row-level** facts (per product, per channel, per time slot). The Gold table stores **per-time-window channel-level summaries**, pre-aggregated for:
+`DepositMovement` (Bronze) stores **granular, row-level** facts (per product, per channel, per time slot). The Gold table stores **per-dimension aggregated summaries**, pre-aggregated for:
 
 - **Power BI reports** — dashboards query a small summary table instead of scanning millions of raw rows → faster loads.
 - **Activator alerts** (Production 05) — threshold alerting on net amounts / transaction counts per time window per channel.
 
-### Gold schema (`Summary_Alert_Channel`) — 8 columns
+### Gold schema (`Summary_Alert_Channel`) — 12 columns
 
 | Column | Type | Purpose |
 |---|---|---|
-| `Date` | `datetime` | Business date (e.g. 2026-06-15) |
-| `Time` | `string` | Time window (e.g. `09:45-10:00`) |
-| `Channel` | `string` | Channel dimension |
-| `Credit_Total` | `decimal` | `sum(Credit_Amount)` for that Date+Time+Channel |
-| `Debit_Total` | `decimal` | `sum(Debit_Amount)` |
+| `Date` | `datetime` | Business date (e.g. 2026-06-15) — group key |
+| `Time` | `string` | Time window (e.g. `09:45-10:00`) — group key |
+| `Product` | `string` | Product dimension — group key |
+| `Channel` | `string` | Channel dimension — group key |
+| `Channel_Group` | `string` | Channel group dimension — group key |
+| `Credit_Amount` | `decimal` | `sum(Credit_Amount)` |
+| `Debit_Amount` | `decimal` | `sum(Debit_Amount)` |
 | `Net_Amount` | `decimal` | `sum(Net_Amount)` |
-| `Txn_Count` | `long` | `sum(Total_Transaction)` |
+| `Credit_Transaction` | `long` | `sum(Credit_Transaction)` |
+| `Debit_Transaction` | `long` | `sum(Debit_Transaction)` |
+| `Total_Transaction` | `long` | `sum(Total_Transaction)` |
 | `UpdatedAtUtc` | `datetime` | When the summary was last recalculated |
 
-> **Production difference:** the source has **no `Transaction_Type` column**, amounts are KQL **`decimal`** (not `real`), and counts come from **`Total_Transaction`** (not `Total_Txn`).
+> **Production difference:** the source has **no `Transaction_Type` column**, and amounts are KQL **`decimal`** (not `real`). Column names mirror the Bronze source; rows are grouped by `Date` + `Time` + `Product` + `Channel` + `Channel_Group`.
 
 ---
 
@@ -59,7 +63,7 @@ Run in the KQL Database → **Query** pane:
 
 **[kql/03-create-Summary_Alert_Channel.kql](kql/03-create-Summary_Alert_Channel.kql)**
 
-Creates the empty `Summary_Alert_Channel` table (8 columns) and enables streaming ingestion. The table is **populated by the function**, not at creation time.
+Creates the empty `Summary_Alert_Channel` table (12 columns) and enables streaming ingestion. The table is **populated by the function**, not at creation time.
 
 ### P3.A2 — Create the stored function
 
@@ -72,8 +76,10 @@ The function takes the exact `load_ts` the pipeline stamped on the new rows and 
 ```
 Step 1  RecentDates = DepositMovement | where load_ts == pipeline_load_ts | distinct Date
 Step 2  RecentDates | join kind=inner DepositMovement on Date     // full day, not just new rows
-Step 3  summarize Credit_Total=sum(Credit_Amount), Debit_Total=sum(Debit_Amount),
-                  Net_Amount=sum(Net_Amount), Txn_Count=sum(Total_Transaction) by Date, Time, Channel
+Step 3  summarize Credit_Amount=sum(Credit_Amount), Debit_Amount=sum(Debit_Amount),
+                  Net_Amount=sum(Net_Amount), Credit_Transaction=sum(Credit_Transaction),
+                  Debit_Transaction=sum(Debit_Transaction), Total_Transaction=sum(Total_Transaction)
+                  by Date, Time, Product, Channel, Channel_Group
 Step 4  extend UpdatedAtUtc = now()
 ```
 
@@ -95,9 +101,9 @@ In the pipeline (Production 04) the KQL Activity passes the pipeline variable:
 .set-or-append Summary_Alert_Channel <| sp_Recalculate_Summary_Alert_Channel(datetime(@{variables('vLoadTs')}))
 ```
 
-> **Append, not upsert.** Re-running for the same Date+Time+Channel adds rows; the latest by `UpdatedAtUtc` is current. Downstream queries should pick the latest:
+> **Append, not upsert.** Re-running for the same key adds rows; the latest by `UpdatedAtUtc` is current. Downstream queries should pick the latest:
 > ```kusto
-> Summary_Alert_Channel | summarize arg_max(UpdatedAtUtc, *) by Date, Time, Channel
+> Summary_Alert_Channel | summarize arg_max(UpdatedAtUtc, *) by Date, Time, Product, Channel, Channel_Group
 > ```
 
 ---
@@ -115,12 +121,14 @@ Run:
 {
     DepositMovement
     | summarize
-        Credit_Total = sum(Credit_Amount),
-        Debit_Total  = sum(Debit_Amount),
-        Net_Amount   = sum(Net_Amount),
-        Txn_Count    = sum(Total_Transaction),
-        UpdatedAtUtc = max(load_ts)
-        by Date, Time, Channel
+        Credit_Amount      = sum(Credit_Amount),
+        Debit_Amount       = sum(Debit_Amount),
+        Net_Amount         = sum(Net_Amount),
+        Credit_Transaction = sum(Credit_Transaction),
+        Debit_Transaction  = sum(Debit_Transaction),
+        Total_Transaction  = sum(Total_Transaction),
+        UpdatedAtUtc       = max(load_ts)
+        by Date, Time, Product, Channel, Channel_Group
 }
 ```
 
@@ -131,7 +139,7 @@ Run:
 | `max(load_ts)` | Freshness proxy — `now()` is **not** mergeable in a materialized view, but `max()` of a column is. |
 | `summarize ... by Date, Time, Channel` | Same aggregation as Option A, run automatically by KQL. |
 
-The view keeps **exactly one row** per Date+Time+Channel (auto-merged), so no dedup is needed.
+The view keeps **exactly one row** per Date+Time+Product+Channel+Channel_Group (auto-merged), so no dedup is needed.
 
 ---
 
@@ -143,13 +151,13 @@ Run the verification script:
 
 | # | Check | Expected |
 |---|---|---|
-| 1 / 1b | Gold table + schema | `Summary_Alert_Channel`, **8 columns** |
+| 1 / 1b | Gold table + schema | `Summary_Alert_Channel`, **12 columns** |
 | 2 / 2b | Streaming ingestion policy | `IsEnabled = true` |
 | 3 | Stored function exists | `sp_Recalculate_Summary_Alert_Channel` |
 | 4 | Preview function output | rows returned, no write |
 | 5 | Row count + latest-per-key | dedup via `arg_max(UpdatedAtUtc, *)` |
 | 6 / 6b | Materialized view (Option B) | `IsHealthy = true` |
-| 7 | Query the view | one row per Date+Time+Channel |
+| 7 | Query the view | one row per Date+Time+Product+Channel+Channel_Group |
 | 8 | Reconcile Gold vs Bronze | totals match for a date |
 
 Each `.show` command has a clean table-format **"b"** companion (using `todynamic(...)`), consistent with Production 01's verify script.
@@ -160,7 +168,7 @@ Each `.show` command has a clean table-format **"b"** companion (using `todynami
 
 | Aspect | Workshop 03 | Production 03 |
 |---|---|---|
-| **Source schema** | included `Transaction_Type` | **removed** — aggregation unaffected (groups by Date+Time+Channel) |
+| **Source schema** | included `Transaction_Type` | **removed** — groups by Date+Time+Product+Channel+Channel_Group |
 | **Amount totals** | `real` | **`decimal`** (matches Bronze `decimal` columns) |
 | **Txn count source** | `Total_Txn` | **`Total_Transaction`** |
 | **Verify script** | inline checks | dedicated [06-verify-Summary_Alert_Channel.kql](kql/06-verify-Summary_Alert_Channel.kql) with clean "b" tables |
@@ -171,7 +179,7 @@ Each `.show` command has a clean table-format **"b"** companion (using `todynami
 
 Before proceeding to **[Production 04](../04-data-pipeline/)**, verify:
 
-- [ ] Gold table `Summary_Alert_Channel` exists with **8 columns**
+- [ ] Gold table `Summary_Alert_Channel` exists with **12 columns**
 - [ ] Streaming ingestion enabled on the Gold table
 - [ ] **Option A:** function `sp_Recalculate_Summary_Alert_Channel` exists and previews rows
 - [ ] **Option B:** materialized view `Summary_Alert_Channel_MV` exists and is healthy

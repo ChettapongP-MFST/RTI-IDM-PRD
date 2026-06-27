@@ -1,22 +1,27 @@
 // Production 03 — Create Gold table Summary_Alert_Channel
 // Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit)
 //
-// Gold (aggregation) layer: one row per Date + Time + Channel, pre-aggregated from
-// the Bronze DepositMovement table for fast Power BI reports and Activator alerts.
+// Gold (aggregation) layer: one row per Date + Time + Product + Channel + Channel_Group,
+// pre-aggregated from the Bronze DepositMovement table for fast Power BI reports and
+// Activator alerts.
 //
 // Production note: the source schema has NO Transaction_Type column. Amount columns are
-// KQL `decimal` (128-bit fixed-point), so the Gold totals are `decimal` too (not `real`).
-// Transaction counts come from `Total_Transaction` (long).
+// KQL `decimal` (128-bit fixed-point). Column names mirror the Bronze source; the only
+// added column is UpdatedAtUtc (when the summary was last recalculated).
 
 .create table Summary_Alert_Channel (
-    Date:          datetime,
-    Time:          string,
-    Channel:       string,
-    Credit_Total:  decimal,
-    Debit_Total:   decimal,
-    Net_Amount:    decimal,
-    Txn_Count:     long,
-    UpdatedAtUtc:  datetime
+    Date:                datetime,
+    Time:                string,
+    Product:             string,
+    Channel:             string,
+    Channel_Group:       string,
+    Credit_Amount:       decimal,
+    Debit_Amount:        decimal,
+    Net_Amount:          decimal,
+    Credit_Transaction:  long,
+    Debit_Transaction:   long,
+    Total_Transaction:   long,
+    UpdatedAtUtc:        datetime
 )
 
 // Enable streaming ingestion for low-latency updates

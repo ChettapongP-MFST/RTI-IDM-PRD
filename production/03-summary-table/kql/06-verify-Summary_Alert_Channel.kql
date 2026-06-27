@@ -11,7 +11,7 @@
 // ============================================================
 .show table Summary_Alert_Channel
 
-// 1b. Column schema as a clean table (expect 8 rows)
+// 1b. Column schema as a clean table (expect 12 rows)
 .show table Summary_Alert_Channel schema as json
 | project Cols = todynamic(Schema).OrderedColumns
 | mv-expand Cols
@@ -44,7 +44,7 @@
 Summary_Alert_Channel | summarize Rows_ = count()
 
 Summary_Alert_Channel
-| summarize arg_max(UpdatedAtUtc, *) by Date, Time, Channel
+| summarize arg_max(UpdatedAtUtc, *) by Date, Time, Product, Channel, Channel_Group
 | order by Date desc, Time asc, Channel asc
 | take 20
 
@@ -58,7 +58,7 @@ Summary_Alert_Channel
 | project Name, IsHealthy, IsEnabled, MaterializedTo, LastRun
 
 // ============================================================
-// 7. Query the materialized view (single row per Date+Time+Channel)
+// 7. Query the materialized view (single row per Date+Time+Product+Channel+Channel_Group)
 // ============================================================
 Summary_Alert_Channel_MV
 | order by Date desc, Time asc, Channel asc
@@ -74,4 +74,4 @@ Summary_Alert_Channel_MV
 // | summarize Bronze_Credit = sum(Credit_Amount), Bronze_Debit = sum(Debit_Amount), Bronze_Txn = sum(Total_Transaction);
 // Summary_Alert_Channel_MV
 // | where Date == d
-// | summarize Gold_Credit = sum(Credit_Total), Gold_Debit = sum(Debit_Total), Gold_Txn = sum(Txn_Count);
+// | summarize Gold_Credit = sum(Credit_Amount), Gold_Debit = sum(Debit_Amount), Gold_Txn = sum(Total_Transaction);
