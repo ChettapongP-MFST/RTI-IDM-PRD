@@ -27,3 +27,6 @@ generate-slides.js
 # Temporary
 tmp/
 *.tmp
+
+# Local session log (do not publish)
+chat_history.md
