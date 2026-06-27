@@ -75,3 +75,42 @@ Summary_Alert_Channel_MV
 // Summary_Alert_Channel_MV
 // | where Date == d
 // | summarize Gold_Credit = sum(Credit_Amount), Gold_Debit = sum(Debit_Amount), Gold_Txn = sum(Total_Transaction);
+
+// ============================================================
+// 9. Ad-hoc Bronze aggregation checks (manual spot-checks)
+// ============================================================
+
+// 9.1 Full Bronze aggregation by group (Gold-equivalent grain) + record count.
+//     Mirrors the Gold summary; RecordCount = how many Bronze rows rolled up per key.
+DepositMovement
+| summarize
+    Credit_Amount      = sum(Credit_Amount),
+    Debit_Amount       = sum(Debit_Amount),
+    Net_Amount         = sum(Net_Amount),
+    Credit_Transaction = sum(Credit_Transaction),
+    Debit_Transaction  = sum(Debit_Transaction),
+    Total_Transaction  = sum(Total_Transaction),
+    Time               = max(Time),
+    RecordCount        = count()
+    by Date, Product, Channel, Channel_Group
+
+// 9.2 Raw Bronze rows for one specific group (inspect granular records).
+DepositMovement
+| project Date, Time, Product, Channel, Channel_Group,
+          Credit_Amount, Debit_Amount, Net_Amount,
+          Credit_Transaction, Debit_Transaction, Total_Transaction
+| where Product == "C" and Channel == "BCMS" and Channel_Group == "Online"
+
+// 9.3 Aggregated Bronze total for that same group (compare against the Gold row).
+DepositMovement
+| summarize
+    Credit_Amount      = sum(Credit_Amount),
+    Debit_Amount       = sum(Debit_Amount),
+    Net_Amount         = sum(Net_Amount),
+    Credit_Transaction = sum(Credit_Transaction),
+    Debit_Transaction  = sum(Debit_Transaction),
+    Total_Transaction  = sum(Total_Transaction),
+    Time               = max(Time),
+    RecordCount        = count()
+    by Date, Product, Channel, Channel_Group
+| where Product == "C" and Channel == "BCMS" and Channel_Group == "Online"
