@@ -45,7 +45,7 @@ This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflect
 
 | Name | Type | Purpose |
 |---|---|---|
-| `vLoadTs` | String | **Freeze the clock** — one `@utcNow()` written to `load_ts` for every row copied in the run, so the whole file shares one ingestion timestamp. |
+| `vLoadTs` | String | **Freeze the clock** — one **Bangkok-time (ICT, UTC+7)** timestamp written to `load_ts` for every row copied in the run, so the whole file shares one ingestion timestamp on the same clock as the file-naming convention. |
 | `vFileName` | String | **Resolve the file name** from the trigger `Subject` path, or fall back to `pFileName` for manual runs. |
 
 ### Activities (execution order)
@@ -100,7 +100,9 @@ Click the **canvas background** → bottom pane.
 |---|---|---|
 | General | Name | `Set vLoadTs` |
 | Settings | Variable | `vLoadTs` |
-| Settings | Value | `@utcNow()` |
+| Settings | Value | `@convertFromUtc(utcNow(), 'SE Asia Standard Time')` |
+
+> ⏰ **Bangkok time (ICT, UTC+7).** The source files are named in local Bangkok time, so `load_ts` is recorded on the **same clock** for consistent lineage. `convertFromUtc(utcNow(), 'SE Asia Standard Time')` shifts UTC → ICT before freezing the value; ICT has **no daylight saving**, so the +7 offset is constant year-round. (If you prefer audit timestamps in UTC, use `@utcNow()` instead — just keep it consistent with `dbo.ProcessedFiles.IngestedAtUtc`, which is written by `SYSUTCDATETIME()` in UTC.)
 
 ---
 

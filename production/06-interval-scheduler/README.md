@@ -17,6 +17,7 @@ Build a **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedul
 | Control table | `wh_control_framework.dbo.ProcessedFiles` |
 | Schedule | every **15 minutes** |
 | Parallelism | ForEach, **non-sequential**, batch count `10` |
+| File-name time zone | **Bangkok / ICT (UTC+7)** — Windows ID `SE Asia Standard Time` |
 | Workspace | `RTI-IDM-PRD` |
 
 ---
@@ -93,9 +94,9 @@ Click the **canvas background** → bottom pane.
 |---|---|---|
 | General | Name | `Set vToday` |
 | Settings | Variable | `vToday` |
-| Settings | Value | `@concat('INTRADAY_SUMMARY_', formatDateTime(utcNow(), 'yyyyMMdd'))` |
+| Settings | Value | `@concat('INTRADAY_SUMMARY_', convertFromUtc(utcNow(), 'SE Asia Standard Time', 'yyyyMMdd'))` |
 
-> Freezes one value (e.g. `INTRADAY_SUMMARY_20260630`) so every downstream comparison uses the same date even if the run crosses a minute boundary.
+> ⚠️ **Time zone matters.** The source files are named in **Bangkok local time (ICT, UTC+7)**, but `utcNow()` returns **UTC**. Between **00:00–06:59 ICT** the UTC date is still *yesterday*, so a raw `utcNow()` prefix would point at the wrong day and miss every new file for the first 7 hours of each Bangkok day. `convertFromUtc(..., 'SE Asia Standard Time', ...)` shifts the clock to ICT first, so `vToday` (e.g. `INTRADAY_SUMMARY_20260630`) always matches the file-naming convention. ICT has **no daylight saving**, so the +7 offset is constant year-round.
 
 ---
 
@@ -214,7 +215,7 @@ Connect **On Success** from `Filter New Files`.
 | Scheduled run | **On** |
 | Repeat | **By the minute** → every **15** minutes |
 | Start date & time | *(now, or next quarter hour)* |
-| Time zone | *(your operations time zone)* |
+| Time zone | **(UTC+07:00) Bangkok, Hanoi, Jakarta** |
 
 3. **Apply**.
 

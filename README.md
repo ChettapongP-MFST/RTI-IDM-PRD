@@ -59,6 +59,7 @@ Production-ready deployment based on the workshop series above. Each module maps
 > - Delimiter: comma `,` → **pipe `|`**
 > - Header row: yes → **no header** (data starts at row 1)
 > - File naming: `mock_HHMM_HHMM.csv` → **`INTRADAY_SUMMARY_YYYYMMDD_HHMM_HHMM.CSV`**
+> - Time zone: file-name date & `load_ts` follow **Bangkok / ICT (UTC+7)** — pipelines use `convertFromUtc(utcNow(), 'SE Asia Standard Time')`, not raw `utcNow()`
 > - Time interval: 30 min → **15 min**
 > - Column removed: `Transaction_Type`
 > - Columns renamed: `Credit_Txn` → `Credit_Transaction`, `Debit_Txn` → `Debit_Transaction`, `Total_Txn` → `Total_Transaction`
