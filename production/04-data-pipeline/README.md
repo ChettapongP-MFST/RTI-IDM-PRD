@@ -363,7 +363,7 @@ mv_Summary_Product_Channel_Alert
 | Step | Target | Engine | Command |
 |---|---|---|---|
 | 1 | `DepositMovement` | KQL | `.clear table DepositMovement data` |
-| 2 | `mv_Summary_Product_Channel_Alert` | KQL | *(auto-clears when Bronze is cleared — verify `.show materialized-view mv_Summary_Product_Channel_Alert`)* |
+| 2 | `mv_Summary_Product_Channel_Alert` | KQL | `.clear materialized-view mv_Summary_Product_Channel_Alert data` *(then verify `.show materialized-view mv_Summary_Product_Channel_Alert`)* |
 | 3 | `dbo.ProcessedFiles` | T-SQL | `DELETE FROM dbo.ProcessedFiles;` |
 
 ---
