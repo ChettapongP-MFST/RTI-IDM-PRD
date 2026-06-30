@@ -14,7 +14,7 @@ Wire the production pipeline **`pl_ingest_DepositMovement`** to `Microsoft.Stora
 | Workspace | `RTI-IDM-PRD` |
 
 **Prerequisite:** [Production 04 — Data Pipeline](../04-data-pipeline/) complete
-**Next:** [Production 06 — Sample Data](../06-sample-data/)
+**Next:** [Production 06 — Interval Scheduler](../06-interval-scheduler/)
 
 ---
 
@@ -224,7 +224,7 @@ After completing this module, your workspace has two new items:
 - [ ] Pipeline completes with 1 `Success` row in `wh_control_framework.dbo.ProcessedFiles`
 - [ ] Gold materialized view `mv_Summary_Product_Channel_Alert` reflects the ingested file (auto-refresh)
 
-→ Proceed to **[Production 06 — Sample Data](../06-sample-data/)**
+→ Proceed to **[Production 06 — Interval Scheduler](../06-interval-scheduler/)**
 
 ---
 
