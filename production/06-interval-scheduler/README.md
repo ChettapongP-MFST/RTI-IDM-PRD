@@ -1,6 +1,6 @@
 # Production 06 — Interval Scheduler
 
-> **Status:** 🔧 In Progress
+> **Status:** ✅ Complete
 
 Build a **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedule`** that runs every **15 minutes**, lists **today's** `INTRADAY_SUMMARY_*.CSV` files in ADLS Gen2, compares them against `wh_control_framework.dbo.ProcessedFiles` to find the **new (not-yet-loaded)** files, and invokes the existing ingestion pipeline **`pl_ingest_DepositMovement`** (Production 04) **once per new file, in parallel**.
 

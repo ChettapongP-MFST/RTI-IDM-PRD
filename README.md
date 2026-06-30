@@ -49,8 +49,8 @@ Production-ready deployment based on the workshop series above. Each module maps
 | 03 | [Summary Table (Gold)](production/03-summary-table/) | ✅ Done | `Summary_Alert_Channel` — Gold table + function + materialized view (tested live) |
 | 04 | [Data Pipeline](production/04-data-pipeline/) | 🔧 In Progress | Updated Copy Activity — pipe delimiter, no header, new column mapping |
 | 05 | [Event Trigger](production/05-event-trigger/) | ⏳ Pending | Production event trigger — updated storage/container/path config |
-| 06 | [Interval Scheduler](production/06-interval-scheduler/) | 🔧 In Progress | Scheduled orchestrator — every 15 min, lists new files vs `ProcessedFiles`, fans out parallel calls to `pl_ingest_DepositMovement` |
-| 07 | [Sample Data](production/07-sample-data/) | ⏳ Pending | Production-format sample files for testing |
+| 06 | [Interval Scheduler](production/06-interval-scheduler/) | ✅ Complete | Scheduled orchestrator — every 15 min, lists new files vs `ProcessedFiles`, fans out parallel calls to `pl_ingest_DepositMovement` |
+| 07 | [Sample Data](production/07-sample-data/) | ✅ Ready | Production-format sample files (`2026-07-01..10`) + seeded generator for testing |
 
 > **Production ADLS Gen2:**
 > - Storage Account: `mockadlsidimdprd001` · Container: `inflowoutflow` · Folder: `inbound/statement/`
