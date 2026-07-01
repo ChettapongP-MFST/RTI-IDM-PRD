@@ -1,0 +1,58 @@
+// ============================================================================
+// Production 08 — Data Activator alert source
+// Monitor intraday Net_Amount per Product + Channel from the Gold MV.
+//   Source : mv_Summary_Product_Channel_Alert   (Gold, auto-aggregated)
+//   Scope  : current intraday only  ->  Date == today (ICT / UTC+7)
+//   Output : one row per Product + Channel, with a per-row Alert_Flag tier
+//
+// TIMEZONE: the Date column is stored in ICT (UTC+7, Bangkok). KQL now() is UTC,
+//           so add 7h before truncating to start-of-day. (No DST in Thailand.)
+//
+// UNITS:    raw data is in Baht. -5,000 M Baht = -5000000000 in the filters below.
+// ============================================================================
+
+let now_ict = now() + 7h;                       // UTC -> ICT (Bangkok, UTC+7)
+let today   = startofday(now_ict);
+mv_Summary_Product_Channel_Alert
+| where Date == today                           // intraday only — excludes yesterday
+| summarize
+    Net_Amount        = sum(Net_Amount),        // monitored measure (Baht)
+    Credit_Amount     = sum(Credit_Amount),
+    Debit_Amount      = sum(Debit_Amount),
+    Total_Transaction = sum(Total_Transaction),
+    Latest_Time       = max(Time)
+    by Product, Channel                         // monitor granularity: Product + Channel
+| extend Alert_Flag = case(
+        Net_Amount <= -15000000000, "High",     // -15,000 M Baht
+        Net_Amount <= -10000000000, "Medium",   // -10,000 M Baht
+        Net_Amount <=  -5000000000, "Low",      //  -5,000 M Baht
+        "Normal")
+| extend
+    Object_Id    = strcat(Product, " / ", Channel),   // Activator object identity
+    Net_Amount_M = round(Net_Amount / 1000000, 1),    // millions of Baht (display)
+    Date_ICT     = format_datetime(today, "yyyy-MM-dd"),
+    Alert_Time   = now_ict
+| project
+    Object_Id, Product, Channel, Alert_Flag,
+    Net_Amount, Net_Amount_M,
+    Credit_Amount, Debit_Amount, Total_Transaction,
+    Latest_Time, Date_ICT, Alert_Time
+| order by Net_Amount asc                        // most negative (worst) first
+
+
+// ----------------------------------------------------------------------------
+// QUICK CHECK — which Product/Channel currently breach a tier (intraday)?
+// Run standalone to confirm the source has breaching rows before wiring rules.
+// ----------------------------------------------------------------------------
+// let now_ict = now() + 7h;
+// let today   = startofday(now_ict);
+// mv_Summary_Product_Channel_Alert
+// | where Date == today
+// | summarize Net_Amount = sum(Net_Amount) by Product, Channel
+// | extend Alert_Flag = case(
+//         Net_Amount <= -15000000000, "High",
+//         Net_Amount <= -10000000000, "Medium",
+//         Net_Amount <=  -5000000000, "Low",
+//         "Normal")
+// | where Alert_Flag != "Normal"
+// | order by Net_Amount asc

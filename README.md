@@ -51,6 +51,7 @@ Production-ready deployment based on the workshop series above. Each module maps
 | 05 | [Event Trigger](production/05-event-trigger/) | ⏳ Pending | Production event trigger — updated storage/container/path config |
 | 06 | [Interval Scheduler](production/06-interval-scheduler/) | ✅ Complete | Scheduled orchestrator — every 15 min, lists new files vs `ProcessedFiles`, fans out parallel calls to `pl_ingest_DepositMovement` |
 | 07 | [Sample Data](production/07-sample-data/) | ✅ Ready | Production-format sample files (`2026-07-01..10`) + seeded generator for testing |
+| 08 | [Data Activator Alerts](production/08-activator-alerts/) | ✅ Ready | Tiered intraday `Net_Amount` alerts by Product + Channel from the Gold MV — **Email + Teams** |
 
 > **Production ADLS Gen2:**
 > - Storage Account: `mockadlsidimdprd001` · Container: `inflowoutflow` · Folder: `inbound/statement/`
