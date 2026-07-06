@@ -33,23 +33,7 @@ with (folder = "Bronze")
 // CSV ingestion mapping — ordinals 0..10 are data columns (from the CSV),
 // ordinals 11..14 are system columns supplied by Copy Activity "Additional columns".
 .create table DepositMovement ingestion csv mapping 'DepositMovement_mapping'
-[
-  {"Column":"Date",                 "Properties":{"Ordinal":"0"}},
-  {"Column":"Time",                 "Properties":{"Ordinal":"1"}},
-  {"Column":"Product",              "Properties":{"Ordinal":"2"}},
-  {"Column":"Channel",              "Properties":{"Ordinal":"3"}},
-  {"Column":"Channel_Group",        "Properties":{"Ordinal":"4"}},
-  {"Column":"Credit_Amount",        "Properties":{"Ordinal":"5"}},
-  {"Column":"Debit_Amount",         "Properties":{"Ordinal":"6"}},
-  {"Column":"Net_Amount",           "Properties":{"Ordinal":"7"}},
-  {"Column":"Credit_Transaction",   "Properties":{"Ordinal":"8"}},
-  {"Column":"Debit_Transaction",    "Properties":{"Ordinal":"9"}},
-  {"Column":"Total_Transaction",    "Properties":{"Ordinal":"10"}},
-  {"Column":"load_ts",              "Properties":{"Ordinal":"11"}},
-  {"Column":"file_name",            "Properties":{"Ordinal":"12"}},
-  {"Column":"pipeline_name",        "Properties":{"Ordinal":"13"}},
-  {"Column":"pipeline_runid",       "Properties":{"Ordinal":"14"}}
-]
+'[{"Column":"Date","Properties":{"Ordinal":"0"}},{"Column":"Time","Properties":{"Ordinal":"1"}},{"Column":"Product","Properties":{"Ordinal":"2"}},{"Column":"Channel","Properties":{"Ordinal":"3"}},{"Column":"Channel_Group","Properties":{"Ordinal":"4"}},{"Column":"Credit_Amount","Properties":{"Ordinal":"5"}},{"Column":"Debit_Amount","Properties":{"Ordinal":"6"}},{"Column":"Net_Amount","Properties":{"Ordinal":"7"}},{"Column":"Credit_Transaction","Properties":{"Ordinal":"8"}},{"Column":"Debit_Transaction","Properties":{"Ordinal":"9"}},{"Column":"Total_Transaction","Properties":{"Ordinal":"10"}},{"Column":"load_ts","Properties":{"Ordinal":"11"}},{"Column":"file_name","Properties":{"Ordinal":"12"}},{"Column":"pipeline_name","Properties":{"Ordinal":"13"}},{"Column":"pipeline_runid","Properties":{"Ordinal":"14"}}]'
 
 // Enable streaming ingestion (low-latency append for real-time dashboards/alerts)
 .alter table DepositMovement policy streamingingestion enable
