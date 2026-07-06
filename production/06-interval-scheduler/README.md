@@ -2,7 +2,7 @@
 
 > **Status:** ✅ Complete
 
-Build a **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedule`** that runs every **15 minutes**, lists **today's** `INTRADAY_SUMMARY_*.CSV` files in ADLS Gen2, compares them against `wh_control_framework.dbo.ProcessedFiles` to find the **new (not-yet-loaded)** files, and invokes the existing ingestion pipeline **`pl_ingest_DepositMovement`** (Production 04) **once per new file, in parallel**.
+Build a **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedule`** that runs every **15 minutes**, lists **today's + yesterday's** `INTRADAY_SUMMARY_*.CSV` files in ADLS Gen2, compares them against `wh_control_framework.dbo.ProcessedFiles` to find the **new (not-yet-loaded)** files, and invokes the existing ingestion pipeline **`pl_ingest_DepositMovement`** (Production 04) **once per new file, in parallel**.
 
 **Prerequisite:** [Production 04 — Data Pipeline](../04-data-pipeline/)
 **Next:** [Production 07 — Sample Data](../07-sample-data/)
@@ -43,7 +43,7 @@ Both paths call the **same** child pipeline `pl_ingest_DepositMovement`, and bot
 The orchestrator does **no copying or auditing of its own** — it only decides *which* files to hand to the existing pipeline.
 
 ```
-[Set vToday] → [Get Metadata: list childItems] → [Lookup Processed Files] → [Filter New Files]
+[Set vToday] → [Set vYesterday] → [Get Metadata: list childItems] → [Lookup Processed Files] → [Filter New Files]
                                                                                     │
                                                               [ForEach New Files]  (parallel, batch 10)
                                                                                     │
@@ -53,9 +53,10 @@ The orchestrator does **no copying or auditing of its own** — it only decides 
 ```
 
 - **`Set vToday`** freezes today's file prefix once (`INTRADAY_SUMMARY_yyyyMMdd`).
+- **`Set vYesterday`** freezes yesterday's file prefix once (`INTRADAY_SUMMARY_yyyyMMdd`).
 - **`Get Metadata`** lists every child item in `inbound/statement/`.
-- **`Lookup Processed Files`** returns the delimited set of today's **already-loaded** file names from `dbo.ProcessedFiles`.
-- **`Filter New Files`** keeps only items that are *today's* `.CSV` **and** are **not** in the processed set → the **new-file** list.
+- **`Lookup Processed Files`** returns the delimited set of today+yesterday **already-loaded** file names from `dbo.ProcessedFiles`.
+- **`Filter New Files`** keeps only items that are *today's or yesterday's* `.CSV` **and** are **not** in the processed set → the **new-file** list.
 - **`ForEach`** fans out the new-file list and calls the child pipeline **in parallel** (one run per new file). The child handles the copy, the 4 lineage columns, the audit row, and the automatic Gold refresh — exactly as in Production 04.
 
 > **Reuse, don't duplicate.** All ingestion, idempotency, audit, and Gold logic lives in `pl_ingest_DepositMovement`. This module is a thin discovery + dispatch wrapper.
@@ -76,13 +77,14 @@ The orchestrator does **no copying or auditing of its own** — it only decides 
 
 Click the **canvas background** → bottom pane.
 
-**Variables tab → + New** (×1):
+**Variables tab → + New** (×2):
 
 | Name | Type | Default Value |
 |---|---|---|
 | `vToday` | String | *(empty)* |
+| `vYesterday` | String | *(empty)* |
 
-> No pipeline **parameters** are needed — the sweep always targets *today* and the fixed `inbound/statement` folder. (Add an optional `pDatePrefix` parameter later if you want to replay a past day.)
+> No pipeline **parameters** are needed — the sweep always targets *today + yesterday* and the fixed `inbound/statement` folder. (Add an optional `pDatePrefix` parameter later if you want to replay a past day.)
 
 ---
 
@@ -100,9 +102,21 @@ Click the **canvas background** → bottom pane.
 
 ---
 
-### P6.4.1 — `Get Metadata — List Files` (Get Metadata)
+### P6.4.0b — `Set vYesterday` (Set variable)
 
 Connect **On Success** from `Set vToday`.
+
+| Tab | Setting | Value |
+|---|---|---|
+| General | Name | `Set vYesterday` |
+| Settings | Variable | `vYesterday` |
+| Settings | Value | `@concat('INTRADAY_SUMMARY_', formatDateTime(addDays(convertFromUtc(utcNow(), 'SE Asia Standard Time'), -1), 'yyyyMMdd'))` |
+
+---
+
+### P6.4.1 — `Get Metadata — List Files` (Get Metadata)
+
+Connect **On Success** from `Set vYesterday`.
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -138,10 +152,13 @@ Connect **On Success** from `Get Metadata — List Files`.
 SELECT COALESCE('|' + STRING_AGG(FileName, '|') + '|', '|') AS ProcessedList
 FROM dbo.ProcessedFiles
 WHERE Status = 'Success'
-  AND FileName LIKE '@{variables('vToday')}%';
+    AND (
+             FileName LIKE '@{variables('vToday')}%'
+        OR FileName LIKE '@{variables('vYesterday')}%'
+    );
 ```
 
-> Returns **one** delimited string of today's already-loaded files, wrapped in pipe bars — e.g. `|INTRADAY_SUMMARY_20260630_0945_1000.CSV|INTRADAY_SUMMARY_20260630_1000_1015.CSV|`. The leading/trailing `|` let the next step match on the **whole** file name (no partial-name false positives). When nothing is loaded yet, the result is `|`.
+> Returns **one** delimited string of today+yesterday already-loaded files, wrapped in pipe bars — e.g. `|INTRADAY_SUMMARY_20260630_0945_1000.CSV|INTRADAY_SUMMARY_20260630_1000_1015.CSV|`. The leading/trailing `|` let the next step match on the **whole** file name (no partial-name false positives). When nothing is loaded yet, the result is `|`.
 
 ---
 
@@ -158,7 +175,10 @@ Connect **On Success** from `Lookup Processed Files`.
 ```
 @and(
     and(
-        startswith(item().name, variables('vToday')),
+        or(
+            startswith(item().name, variables('vToday')),
+            startswith(item().name, variables('vYesterday'))
+        ),
         endswith(toLower(item().name), '.csv')
     ),
     not(contains(
@@ -168,7 +188,7 @@ Connect **On Success** from `Lookup Processed Files`.
 )
 ```
 
-> Keeps an item only when it is **today's** file, ends in `.CSV`, **and** its delimiter-wrapped name is **not** found in the processed set. The survivors are the **new** files. Output array: `@activity('Filter New Files').output.Value`.
+> Keeps an item only when it is **today's or yesterday's** file, ends in `.CSV`, **and** its delimiter-wrapped name is **not** found in the processed set. The survivors are the **new** files. Output array: `@activity('Filter New Files').output.Value`.
 
 ---
 
@@ -265,8 +285,8 @@ DepositMovement
 
 ## ✅ Exit Criteria
 
-- [ ] Pipeline `pl_ingest_DepositMovement_schedule` created with `vToday`, Get Metadata, Lookup, Filter, ForEach
-- [ ] `Filter New Files` correctly returns only today's, not-yet-loaded `.CSV` files
+- [ ] Pipeline `pl_ingest_DepositMovement_schedule` created with `vToday`, `vYesterday`, Get Metadata, Lookup, Filter, ForEach
+- [ ] `Filter New Files` correctly returns only today+yesterday, not-yet-loaded `.CSV` files
 - [ ] `ForEach New Files` runs **non-sequentially** and invokes `pl_ingest_DepositMovement` once per new file
 - [ ] Multiple new files trigger **parallel** child runs (visible in Monitor)
 - [ ] No ingestion/audit logic is duplicated — the child pipeline does all loading
