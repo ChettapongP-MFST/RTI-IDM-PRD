@@ -2,14 +2,17 @@
 
 > **Status:** ✅ Complete
 
-Build a **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedule`** that runs every **30 minutes**, uses a first-step **time-window gate** to continue only during **03:30-22:30 (Bangkok / ICT)**, lists **today's + yesterday's** `INTRADAY_SUMMARY_*.CSV` files in ADLS Gen2, compares them against `wh_control_framework.dbo.ProcessedFiles` to find the **new (not-yet-loaded)** files, and invokes the existing ingestion pipeline **`pl_ingest_DepositMovement`** (Production 04) **once per new file, in parallel**.
+Build a new **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedule`** that runs every **30 minutes**, uses a first-step **time-window gate** to continue only during **03:30-22:30 (Bangkok / ICT)**, and invokes **`pl_ingest_DepositMovement_trigger_pipeline`** as a child.
+
+The renamed trigger pipeline **`pl_ingest_DepositMovement_trigger_pipeline`** (formerly `pl_ingest_DepositMovement_schedule`) keeps the existing discovery + dispatch logic: list **today's + yesterday's** `INTRADAY_SUMMARY_*.CSV` files in ADLS Gen2, compare with `wh_control_framework.dbo.ProcessedFiles` to find the **new (not-yet-loaded)** files, and invoke the ingestion pipeline **`pl_ingest_DepositMovement`** (Production 04) **once per new file, in parallel**.
 
 **Prerequisite:** [Production 04 — Data Pipeline](../04-data-pipeline/)
 **Next:** [Production 07 — Sample Data](../07-sample-data/)
 
 | Setting | Value |
 |---|---|
-| Orchestrator pipeline | `pl_ingest_DepositMovement_schedule` |
+| Orchestrator pipeline (new wrapper) | `pl_ingest_DepositMovement_schedule` |
+| Trigger pipeline (renamed from old schedule pipeline) | `pl_ingest_DepositMovement_trigger_pipeline` |
 | Child (reused) pipeline | `pl_ingest_DepositMovement` |
 | Storage account | `mockadlsidimdprd001` |
 | Container | `inflowoutflow` |
@@ -29,6 +32,8 @@ Build a **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedul
 
 Both paths call the **same** child pipeline `pl_ingest_DepositMovement`, and both are safe to run together because the child is **idempotent** — every file is checked against `dbo.ProcessedFiles` before loading, so a file can never be double-ingested no matter how many times it is offered.
 
+With this update, the wrapper `pl_ingest_DepositMovement_schedule` only enforces the run window and then invokes `pl_ingest_DepositMovement_trigger_pipeline`.
+
 | | Production 05 — Event Trigger | **Production 06 — Interval Scheduler** |
 |---|---|---|
 | Model | Push (event-driven) | **Pull (time-driven)** |
@@ -41,18 +46,27 @@ Both paths call the **same** child pipeline `pl_ingest_DepositMovement`, and bot
 
 ## P6.1 — How it works
 
-The orchestrator does **no copying or auditing of its own** — it only decides *which* files to hand to the existing pipeline.
+Top-level control flow:
 
 ```
-[If In Execution Window (ICT)]
-    ├─ True  → [Set vToday] → [Set vYesterday] → [Get Metadata: list childItems] → [Lookup Processed Files] → [Filter New Files]
-    └─ False → [End (no-op)]
-                                                                                    │
-                                                              [ForEach New Files]  (parallel, batch 10)
-                                                                                    │
-                                                          [Execute Pipeline: pl_ingest_DepositMovement]
-                                                                  pFileName = @item().name
-                                                                  pFolder   = inbound/statement
+[pl_ingest_DepositMovement_schedule]
+    └─ [If In Execution Window (ICT)]
+           ├─ True  → [Execute Pipeline: pl_ingest_DepositMovement_trigger_pipeline]
+           └─ False → [End (no-op)]
+```
+
+Inside `pl_ingest_DepositMovement_trigger_pipeline` (unchanged discovery + dispatch logic):
+
+The trigger pipeline does **no copying or auditing of its own** — it only decides *which* files to hand to the existing pipeline.
+
+```
+[Set vToday] → [Set vYesterday] → [Get Metadata: list childItems] → [Lookup Processed Files] → [Filter New Files]
+                                                  │
+                                        [ForEach New Files]  (parallel, batch 10)
+                                                  │
+                                    [Execute Pipeline: pl_ingest_DepositMovement]
+                                        pFileName = @item().name
+                                        pFolder   = inbound/statement
 ```
 
 - **`Set vToday`** freezes today's file prefix once (`INTRADAY_SUMMARY_yyyyMMdd`).
@@ -61,23 +75,72 @@ The orchestrator does **no copying or auditing of its own** — it only decides 
 - **`Lookup Processed Files`** returns the delimited set of today+yesterday **already-loaded** file names from `dbo.ProcessedFiles`.
 - **`Filter New Files`** keeps only items that are *today's or yesterday's* `.CSV` **and** are **not** in the processed set → the **new-file** list.
 - **`ForEach`** fans out the new-file list and calls the child pipeline **in parallel** (one run per new file). The child handles the copy, the 4 lineage columns, the audit row, and the automatic Gold refresh — exactly as in Production 04.
-- **`If In Execution Window (ICT)`** is the first activity and allows processing only between **03:30 and 22:30** Bangkok time. Outside that window the run exits without work.
+- **`If In Execution Window (ICT)`** now lives in the new wrapper pipeline `pl_ingest_DepositMovement_schedule` and allows processing only between **03:30 and 22:30** Bangkok time. Outside that window the run exits without work.
 
 > **Reuse, don't duplicate.** All ingestion, idempotency, audit, and Gold logic lives in `pl_ingest_DepositMovement`. This module is a thin discovery + dispatch wrapper.
 
 ---
 
-## P6.2 — Create the orchestrator pipeline
+## P6.2 — Rename and create pipelines
+
+### P6.2.1 — Rename existing scheduler pipeline to trigger pipeline
+
+1. Open **Fabric Portal** → **RTI-IDM-PRD** workspace.
+2. Locate existing pipeline **`pl_ingest_DepositMovement_schedule`**.
+3. Rename to **`pl_ingest_DepositMovement_trigger_pipeline`**.
+
+> This preserves all existing discovery/filter/ForEach behavior in the renamed trigger pipeline.
+
+### P6.2.2 — Create the new scheduler wrapper pipeline
 
 1. Open **Fabric Portal** → **RTI-IDM-PRD** workspace.
 2. **+ New item** → **Data pipeline**.
 3. Name: **`pl_ingest_DepositMovement_schedule`** → **Create**.
 
-> Tip: if you prefer, **clone** `pl_ingest_DepositMovement` (**⋯ → Duplicate**) and rename it, then replace its body with the activities below. Cloning is optional — this orchestrator shares only the **connections** (ADLS Gen2 + Warehouse) with the original, not its activities.
+> This new scheduler wrapper contains only the execution-window gate and a child invocation to `pl_ingest_DepositMovement_trigger_pipeline`.
 
 ---
 
-## P6.3 — Parameters & variables
+## P6.3 — Build the scheduler wrapper activities
+
+### P6.3.1 — `If In Execution Window (ICT)` (If Condition)
+
+Place this as the **first** activity in `pl_ingest_DepositMovement_schedule`.
+
+| Setting | Value |
+|---|---|
+| Name | `If In Execution Window (ICT)` |
+| Expression | *(see expression below)* |
+
+```text
+@and(
+    greaterOrEquals(int(formatDateTime(addHours(utcNow(), 7), 'HHmm')), 330),
+    lessOrEquals(int(formatDateTime(addHours(utcNow(), 7), 'HHmm')), 2230)
+)
+```
+
+### P6.3.2 — `Invoke Trigger Pipeline` (Execute Pipeline)
+
+Add this activity in the **True** branch.
+
+| Setting | Value |
+|---|---|
+| Name | `Invoke Trigger Pipeline` |
+| Invoked pipeline | `pl_ingest_DepositMovement_trigger_pipeline` |
+| Wait on completion | ✅ Checked |
+
+- **True branch:** run `Invoke Trigger Pipeline`.
+- **False branch:** leave empty (no-op) or add a log/annotation activity.
+
+> This pattern is required when CRON expressions are not available in the trigger UI.
+
+---
+
+## P6.4 — Existing trigger pipeline internals (renamed pipeline)
+
+The following internals belong to **`pl_ingest_DepositMovement_trigger_pipeline`**.
+
+## P6.4.1 — Parameters & variables
 
 Click the **canvas background** → bottom pane.
 
@@ -92,30 +155,9 @@ Click the **canvas background** → bottom pane.
 
 ---
 
-## P6.4 — Build the activities
+Continue configuring activities in `pl_ingest_DepositMovement_trigger_pipeline`:
 
-### P6.4.0 — `If In Execution Window (ICT)` (If Condition)
-
-Place this as the **first** activity in the pipeline.
-
-| Setting | Value |
-|---|---|
-| Name | `If In Execution Window (ICT)` |
-| Expression | *(see expression below)* |
-
-```text
-@and(
-    greaterOrEquals(int(formatDateTime(addHours(utcNow(), 7), 'HHmm')), 330),
-    lessOrEquals(int(formatDateTime(addHours(utcNow(), 7), 'HHmm')), 2230)
-)
-```
-
-- **True branch:** continue with `Set vToday` and the rest of the pipeline.
-- **False branch:** leave empty (no-op) or add a log/annotation activity.
-
-> This pattern is required when CRON expressions are not available in the trigger UI.
-
-### P6.4.0a — `Set vToday` (Set variable)
+### P6.4.2 — `Set vToday` (Set variable)
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -127,9 +169,9 @@ Place this as the **first** activity in the pipeline.
 
 ---
 
-### P6.4.0b — `Set vYesterday` (Set variable)
+### P6.4.3 — `Set vYesterday` (Set variable)
 
-Connect **On Success** from `Set vToday` (inside the **True** branch).
+Connect **On Success** from `Set vToday`.
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -139,9 +181,9 @@ Connect **On Success** from `Set vToday` (inside the **True** branch).
 
 ---
 
-### P6.4.1 — `Get Metadata — List Files` (Get Metadata)
+### P6.4.4 — `Get Metadata — List Files` (Get Metadata)
 
-Connect **On Success** from `Set vYesterday` (inside the **True** branch).
+Connect **On Success** from `Set vYesterday`.
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -162,9 +204,9 @@ Connect **On Success** from `Set vYesterday` (inside the **True** branch).
 
 ---
 
-### P6.4.2 — `Lookup Processed Files` (Lookup)
+### P6.4.5 — `Lookup Processed Files` (Lookup)
 
-Connect **On Success** from `Get Metadata — List Files` (inside the **True** branch).
+Connect **On Success** from `Get Metadata — List Files`.
 
 | Setting | Value |
 |---|---|
@@ -187,9 +229,9 @@ WHERE Status = 'Success'
 
 ---
 
-### P6.4.3 — `Filter New Files` (Filter)
+### P6.4.6 — `Filter New Files` (Filter)
 
-Connect **On Success** from `Lookup Processed Files` (inside the **True** branch).
+Connect **On Success** from `Lookup Processed Files`.
 
 | Setting | Value |
 |---|---|
@@ -217,9 +259,9 @@ Connect **On Success** from `Lookup Processed Files` (inside the **True** branch
 
 ---
 
-### P6.4.4 — `ForEach New Files` (ForEach) → parallel child runs
+### P6.4.7 — `ForEach New Files` (ForEach) → parallel child runs
 
-Connect **On Success** from `Filter New Files` (inside the **True** branch).
+Connect **On Success** from `Filter New Files`.
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -250,7 +292,7 @@ Connect **On Success** from `Filter New Files` (inside the **True** branch).
 
 ---
 
-## P6.5 — Configure the 30-minute schedule
+## P6.5 — Configure the 30-minute schedule (wrapper pipeline)
 
 1. On the pipeline toolbar → **Schedule**.
 2. Set:
@@ -264,7 +306,7 @@ Connect **On Success** from `Filter New Files` (inside the **True** branch).
 
 3. **Apply**.
 
-> The trigger can run all day every 30 minutes, and the first-step `If In Execution Window (ICT)` gate enforces the 03:30-22:30 processing window. The sweep is cheap when idle: if no new files exist, `Filter New Files` returns an empty array and the ForEach does nothing. Overlap is harmless — even if a run is still finishing when the next fires, the child's idempotency check prevents any double load.
+> The trigger can run all day every 30 minutes, and the first-step `If In Execution Window (ICT)` gate in `pl_ingest_DepositMovement_schedule` enforces the 03:30-22:30 processing window. Overlap is harmless — even if a run is still finishing when the next fires, the child's idempotency check prevents any double load.
 
 ---
 
@@ -273,7 +315,8 @@ Connect **On Success** from `Filter New Files` (inside the **True** branch).
 1. Drop **2 or more** today-dated files into `inflowoutflow/inbound/statement/` (e.g. from [`resources/prd_datasets/`](../../resources/prd_datasets/), renamed to today's date) so parallelism is exercised.
 2. **Run** `pl_ingest_DepositMovement_schedule` manually (don't wait for the timer).
 3. Open **Monitor → Pipeline runs**:
-   - The orchestrator run lists **N child runs** of `pl_ingest_DepositMovement` (one per new file), started near-simultaneously.
+    - The scheduler wrapper run should invoke `pl_ingest_DepositMovement_trigger_pipeline`.
+    - The trigger pipeline run then lists **N child runs** of `pl_ingest_DepositMovement` (one per new file), started near-simultaneously.
 4. Verify the layers:
 
 **Control (Warehouse):**
@@ -310,7 +353,9 @@ DepositMovement
 
 ## ✅ Exit Criteria
 
-- [ ] Pipeline `pl_ingest_DepositMovement_schedule` created with `If In Execution Window (ICT)`, `vToday`, `vYesterday`, Get Metadata, Lookup, Filter, ForEach
+- [ ] Existing pipeline renamed: `pl_ingest_DepositMovement_schedule` → `pl_ingest_DepositMovement_trigger_pipeline`
+- [ ] New wrapper pipeline `pl_ingest_DepositMovement_schedule` created with `If In Execution Window (ICT)` and child invoke to `pl_ingest_DepositMovement_trigger_pipeline`
+- [ ] `pl_ingest_DepositMovement_trigger_pipeline` contains `vToday`, `vYesterday`, Get Metadata, Lookup, Filter, ForEach
 - [ ] `Filter New Files` correctly returns only today+yesterday, not-yet-loaded `.CSV` files
 - [ ] `ForEach New Files` runs **non-sequentially** and invokes `pl_ingest_DepositMovement` once per new file
 - [ ] Multiple new files trigger **parallel** child runs (visible in Monitor)
@@ -324,4 +369,7 @@ DepositMovement
 
 ## Reference
 
-Once built, export both pipelines from Fabric (**⋯ → Export → Pipeline JSON**) and save the orchestrator to [`pipeline/pl_ingest_DepositMovement_schedule.json`](pipeline/) for version control and re-import.
+Once built, export both pipelines from Fabric (**⋯ → Export → Pipeline JSON**) and save to version control, for example:
+
+- `pipeline/pl_ingest_DepositMovement_schedule.json`
+- `pipeline/pl_ingest_DepositMovement_trigger_pipeline.json`
