@@ -135,22 +135,28 @@ mv_Summary_Product_Channel_Alert
 
 ## P8.4 — Add the alert from the KQL Queryset
 
-> ⚠️ You cannot connect an Eventhouse/KQL DB directly from inside the Activator's "Select a data source" dialog. Start from the **KQL Queryset** side.
+> ⚠️ **Do not** try to wire KQL from inside Activator. The Activator (and Eventstream) **"Select a data source" / "Connect data source"** dialogs do **not** list **KQL / Kusto / Eventhouse** — searching returns no results. An Eventstream "bridge" is **not** needed and does **not** work for this. The supported path is to push the alert **out** from the **KQL Queryset** side.
 
 1. Open the **KQL Queryset** connected to the `DepositMovement` database.
 2. Paste the query from **P8.3** and **Run** to confirm it returns rows.
-3. Toolbar → **More…** → **Add alert**.
-4. In **Add rule**:
+3. Toolbar → **More… (⋯)** → **Add alert** (a.k.a. **Set alert**).
+4. In the **Add rule** panel (this is the **seed dialog** — intentionally limited):
    - **Rule name**: `rule_Net_Amount_alert` (renamed per tier next)
    - **Source / Query**: auto-filled from the queryset
    - **Run query every**: `5 minutes` (or `1 minute` for testing)
-   - **Object ID column**: `Object_Id` (so each Product/Channel is tracked separately)
-   - **Action**: pick any for now — refined in P8.6
-5. **Save location**: `act-deposit-alerts` → **Create** → **Open**.
+   - **Condition → Check**: only **`On each event`** is offered here — leave it as-is.
+   - **Action**: pick any (e.g. **Message to individuals** → yourself) — refined in P8.6
+5. **Save location**: `act-deposit-alerts` → **Create**.
+
+> ⚠️ **The seed dialog cannot build the tiers.** It has **no** `+ Add condition`, no **Changes**, and no **Numeric** operators — only `On each event`. That is expected. The **full condition editor** appears only **after** you create the rule and **open the Activator item** (`act-deposit-alerts-01`). All tier logic (P8.5) is built there, not in this dialog.
+
+6. After **Create**, click **Open** (or open the `act-deposit-alerts-01` item from the workspace) to reach the full rule editor.
 
 ---
 
 ## P8.5 — Configure the 3 alert rules (one per tier)
+
+> 🧭 **You must be inside the `act-deposit-alerts-01` Activator item** (not the seed dialog) for the steps below. The multi-condition editor with **Changes** and **Numeric** operators only exists here.
 
 Create **3 rules** with **exclusive numeric ranges** on `Net_Amount` so each fires **only** for its own tier — no overlap.
 
