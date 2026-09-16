@@ -1,0 +1,136 @@
+// Production Silver - Create the deterministic Bronze-to-Silver transformation.
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
+//
+// Date and Time are source business values in Asia/Bangkok wall-clock time.
+// Time must use HH:mm-HH:mm. The interval start determines the operating window.
+// Precedence is WEEKEND, then HOLIDAY, then BUSINESS_DAY.
+
+.create-or-alter function with (
+    docstring = "Classify row-level DepositMovement records by Bangkok business day and operating window",
+    folder = "Silver"
+)
+Transform_DepositMovementClassified()
+{
+    // Note 1: The function has no parameters because the update policy supplies
+    // the newly ingested rows through the DepositMovement source table below.
+    //
+    // Note 2: Reference tables are reduced to scalar dynamic values once per
+    // function execution, then reused while every source row is classified.
+    // A scalar property bag avoids a join in the update-policy query. Fabric
+    // otherwise requires streaming ingestion to be disabled on the source table.
+    //
+    // Note 3: These boundaries form [January 1 this year, January 1 next year).
+    // The half-open range includes every instant in the current execution year.
+    let CurrentYearStart = startofyear(now());
+    let NextYearStart = datetime_add("year", 1, CurrentYearStart);
+    // Note 4: HolidayByDate becomes a property bag such as
+    // {"2026-01-01":"New Year's Day"}, enabling a lookup by local date key.
+    let HolidayByDate = toscalar(
+        ThailandFinancialInstitutionHoliday
+        // Note 5: Filter before summarize so holidays outside the current year
+        // do not consume aggregation memory or participate in classification.
+        | where HolidayDate >= CurrentYearStart
+            and HolidayDate < NextYearStart
+        // Note 6: Normalize timestamps to dates and choose one deterministic
+        // name if the reference table contains duplicate rows for the same day.
+        | summarize HolidayName = min(HolidayName)
+            by HolidayDate = startofday(HolidayDate)
+        | extend HolidayDateKey = format_datetime(HolidayDate, "yyyy-MM-dd")
+        // Note 7: make_bag creates the date-to-name dictionary used later by
+        // bag_has_key and indexed lookup operations.
+        | summarize Holidays = make_bag(bag_pack(HolidayDateKey, HolidayName))
+    );
+    // Note 8: Windows becomes one ordered dynamic array containing all operating
+    // window definitions. SortOrder keeps the reference-table sequence stable.
+    let Windows = toscalar(
+        OperatingWindowsTimes
+        | order by SortOrder asc
+        | summarize WindowDefinitions = make_list(pack(
+            "WindowCode", WindowCode,
+            "WindowName", WindowName,
+            "StartTime", StartTime,
+            "EndTime", EndTime,
+            "SortOrder", SortOrder))
+    );
+    // Note 9: Processing starts with the Bronze rows supplied to this function.
+    DepositMovement
+    // Note 10: Date is interpreted as Bangkok local calendar time. Time stores
+    // an interval, so only its HH:mm start value is extracted for classification.
+    | extend
+        LocalDate = startofday(Date),
+        _TimeStartText = extract(@"^([0-9]{2}:[0-9]{2})-[0-9]{2}:[0-9]{2}$", 1, Time)
+    // Note 11: Appending seconds converts HH:mm into a timespan that can be
+    // compared with the StartTime and EndTime values from the window reference.
+    | extend LocalTimeOfDay = totimespan(strcat(_TimeStartText, ":00"))
+    | extend LocalDateTime = LocalDate + LocalTimeOfDay
+    // Note 12: KQL dayofweek returns Sunday as 0d and Saturday as 6d.
+    | extend
+        IsWeekend = dayofweek(LocalDate) in (0d, 6d),
+        _LocalDateKey = format_datetime(LocalDate, "yyyy-MM-dd")
+    // Note 13: The date key checks holiday membership and retrieves its name
+    // without joining each DepositMovement row to the holiday table.
+    | extend
+        IsFinancialInstitutionHoliday = bag_has_key(HolidayByDate, _LocalDateKey),
+        HolidayName = tostring(HolidayByDate[_LocalDateKey])
+    // Note 14: A business day must pass both calendar checks. This same flag
+    // prevents weekend and holiday rows from matching an operating window.
+    | extend IsBusinessDay = not(IsWeekend)
+        and not(IsFinancialInstitutionHoliday)
+    // Note 15: Weekend has precedence when a date is both a weekend and a listed
+    // holiday; otherwise the date is classified as holiday or business day.
+    | extend DayClassification = case(
+        IsWeekend, "WEEKEND",
+        IsFinancialInstitutionHoliday, "HOLIDAY",
+        "BUSINESS_DAY")
+    // mv-apply evaluates all reference ranges inside each source row. The summarize
+    // returns one result per input row, including malformed or unmatched rows.
+    // Note 16: Window ranges are half-open [StartTime, EndTime), so a boundary
+    // time belongs to the window that starts there and never to the previous one.
+    | mv-apply _Window = Windows to typeof(dynamic) on (
+        extend
+            _WindowStart = totimespan(_Window["StartTime"]),
+            _WindowEnd = totimespan(_Window["EndTime"])
+        | extend _IsWindowMatch =
+            IsBusinessDay
+            and isnotnull(LocalTimeOfDay)
+            and LocalTimeOfDay >= _WindowStart
+            and LocalTimeOfDay < _WindowEnd
+        // Note 17: Counting matches detects missing and overlapping reference
+        // windows. The matching definitions are retained for field extraction.
+        | summarize
+            WindowMatchCount = countif(_IsWindowMatch),
+            _MatchedWindows = make_list_if(_Window, _IsWindowMatch)
+    )
+    // Note 18: Index zero is safe to inspect as a dynamic value. Output window
+    // fields are populated only when exactly one definition matched.
+    | extend _MatchedWindow = _MatchedWindows[0]
+    | extend
+        OperatingWindowCode = iff(WindowMatchCount == 1, tostring(_MatchedWindow["WindowCode"]), ""),
+        OperatingWindowName = iff(WindowMatchCount == 1, tostring(_MatchedWindow["WindowName"]), ""),
+        OperatingWindowStartTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow["StartTime"]), timespan(null)),
+        OperatingWindowEndTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow["EndTime"]), timespan(null)),
+        OperatingWindowSortOrder = iff(WindowMatchCount == 1, toint(_MatchedWindow["SortOrder"]), int(null)),
+        // Note 19: Status precedence reports malformed time first. Non-business
+        // days are valid classifications even though they intentionally match no window.
+        ClassificationStatus = case(
+            isempty(_TimeStartText), "INVALID_TIME_FORMAT",
+            not(IsBusinessDay), "CLASSIFIED",
+            WindowMatchCount == 0, "NO_WINDOW_MATCH",
+            WindowMatchCount > 1, "MULTIPLE_WINDOW_MATCHES",
+            "CLASSIFIED")
+    // Note 20: The final projection removes temporary underscore-prefixed fields
+    // and fixes the exact column order required by DepositMovementClassified.
+    | project
+        Date, Time, Product, Channel, Channel_Group,
+        Credit_Amount, Debit_Amount, Net_Amount,
+        Credit_Transaction, Debit_Transaction, Total_Transaction,
+        load_ts, file_name, pipeline_name, pipeline_runid,
+        LocalDate, LocalDateTime, LocalTimeOfDay,
+        IsWeekend, IsFinancialInstitutionHoliday, IsBusinessDay,
+        DayClassification, HolidayName,
+        OperatingWindowCode, OperatingWindowName,
+        OperatingWindowStartTime, OperatingWindowEndTime, OperatingWindowSortOrder,
+        WindowMatchCount, ClassificationStatus
+}
+
+.show function Transform_DepositMovementClassified
