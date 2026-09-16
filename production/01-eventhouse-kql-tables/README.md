@@ -243,6 +243,67 @@ Expected values are 20 total rows, 19 nationwide rows, one Bangkok row, and 20 d
 
 ---
 
+## P1.7 — Operating Window Times
+
+`OperatingWindowsTimes` defines the four recurring Asia/Bangkok operating windows used by the Gold alert model. Complete the following steps once in the `DepositMovement` KQL database.
+
+### Step 1 — Create the table and ingestion mapping
+
+1. Open Eventhouse `eh-rti-deposit`, then open the `DepositMovement` KQL database.
+2. Select **Query**.
+3. Open [kql/06-create-OperatingWindowsTimes.kql](kql/06-create-OperatingWindowsTimes.kql), paste the complete script into the query pane, and select **Run**.
+4. Confirm that each command completes successfully.
+
+The script creates the `OperatingWindowsTimes` table, creates the `OperatingWindowsTimes_mapping` CSV mapping, places the table in the `Reference` folder, and applies ten-year retention and hot-cache policies. Running this script again is safe because it does not ingest data.
+
+### Step 2 — Upload the operating-window CSV
+
+1. In the `DepositMovement` KQL database, select **Get data** > **Local file**.
+2. Select [data/operating-windows-times.csv](data/operating-windows-times.csv).
+3. Choose the existing table `OperatingWindowsTimes`.
+4. Set the data format to **CSV**.
+5. Enable **First row is column headers**.
+6. Select the existing ingestion mapping `OperatingWindowsTimes_mapping`.
+7. Confirm the five columns are mapped as follows:
+
+   | CSV column | KQL type |
+   |---|---|
+   | `WindowCode` | `string` |
+   | `WindowName` | `string` |
+   | `StartTime` | `timespan` |
+   | `EndTime` | `timespan` |
+   | `SortOrder` | `int` |
+
+8. Complete the ingestion and wait for the operation to report success.
+
+The final `EndTime` value is `1.00:00:00`, which is a one-day `timespan` representing the 24:00 boundary. The windows use half-open boundaries (`StartTime` inclusive and `EndTime` exclusive), so adjacent windows do not overlap.
+
+### Step 3 — Verify the loaded rows
+
+1. Open [kql/07-verify-OperatingWindowsTimes.kql](kql/07-verify-OperatingWindowsTimes.kql) in a new query pane.
+2. Run the complete script.
+3. Confirm the summary result contains:
+
+   | Check | Expected value |
+   |---|---|
+   | `RowCount` | `4` |
+   | `DistinctCodeCount` | `4` |
+   | `DistinctSortOrderCount` | `4` |
+   | `FirstStartTime` | `00:00:00` |
+   | `LastEndTime` | `1.00:00:00` |
+
+4. Confirm that the duplicate, invalid-boundary, and final-boundary checks each return **no rows**.
+5. Confirm that the final result lists the four windows in `SortOrder` sequence from `BEFORE_WORKING_HOUR` through `AFTER_WORKING_HOUR`.
+
+### Safe rerun guidance
+
+- You may rerun [kql/06-create-OperatingWindowsTimes.kql](kql/06-create-OperatingWindowsTimes.kql) to restore the schema, mapping, or policies.
+- Before uploading the CSV again, run [kql/07-verify-OperatingWindowsTimes.kql](kql/07-verify-OperatingWindowsTimes.kql).
+- If verification already reports four valid rows, do **not** upload the CSV again; ingestion appends rows and would create duplicates.
+- If verification reports missing, duplicate, or incorrect rows, stop and correct the existing reference data before uploading. Do not repeatedly retry the upload.
+
+---
+
 ## ✅ Exit Criteria
 
 Before proceeding to **[Production 02](../02-warehouse-control/)**, verify:
@@ -257,5 +318,7 @@ Before proceeding to **[Production 02](../02-warehouse-control/)**, verify:
 - [ ] Table count = 0 (ready for pipeline ingestion)
 - [ ] `ThailandFinancialInstitutionHoliday` exists with its named CSV mapping
 - [ ] The 2026 holiday export contains 20 distinct dates
+- [ ] `OperatingWindowsTimes` exists with `OperatingWindowsTimes_mapping`
+- [ ] `OperatingWindowsTimes` contains four unique, contiguous windows from `00:00:00` to `1.00:00:00`
 
 → Proceed to **[Production 02 — Warehouse Control Table](../02-warehouse-control/)**
