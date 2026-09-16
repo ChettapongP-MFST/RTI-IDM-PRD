@@ -72,8 +72,8 @@ Transform_DepositMovementClassified()
     | extend
         IsFinancialInstitutionHoliday = bag_has_key(HolidayByDate, _LocalDateKey),
         HolidayName = tostring(HolidayByDate[_LocalDateKey])
-    // Note 14: A business day must pass both calendar checks. This same flag
-    // prevents weekend and holiday rows from matching an operating window.
+    // Note 14: A business day must pass both calendar checks. Operating-window
+    // assignment is independent and applies to every valid source row.
     | extend IsBusinessDay = not(IsWeekend)
         and not(IsFinancialInstitutionHoliday)
     // Note 15: Weekend has precedence when a date is both a weekend and a listed
@@ -91,8 +91,7 @@ Transform_DepositMovementClassified()
             _WindowStart = totimespan(_Window["StartTime"]),
             _WindowEnd = totimespan(_Window["EndTime"])
         | extend _IsWindowMatch =
-            IsBusinessDay
-            and isnotnull(LocalTimeOfDay)
+            isnotnull(LocalTimeOfDay)
             and LocalTimeOfDay >= _WindowStart
             and LocalTimeOfDay < _WindowEnd
         // Note 17: Counting matches detects missing and overlapping reference
@@ -110,11 +109,10 @@ Transform_DepositMovementClassified()
         OperatingWindowStartTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow["StartTime"]), timespan(null)),
         OperatingWindowEndTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow["EndTime"]), timespan(null)),
         OperatingWindowSortOrder = iff(WindowMatchCount == 1, toint(_MatchedWindow["SortOrder"]), int(null)),
-        // Note 19: Status precedence reports malformed time first. Non-business
-        // days are valid classifications even though they intentionally match no window.
+        // Note 19: Status precedence reports malformed time first, followed by
+        // missing or overlapping window definitions for every day classification.
         ClassificationStatus = case(
             isempty(_TimeStartText), "INVALID_TIME_FORMAT",
-            not(IsBusinessDay), "CLASSIFIED",
             WindowMatchCount == 0, "NO_WINDOW_MATCH",
             WindowMatchCount > 1, "MULTIPLE_WINDOW_MATCHES",
             "CLASSIFIED")

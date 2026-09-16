@@ -20,8 +20,7 @@ Existing Gold summaries (unchanged)
 - Require `Time` in `HH:mm-HH:mm` format.
 - Apply precedence in this order: `WEEKEND`, `HOLIDAY`, `BUSINESS_DAY`.
 - Set `IsBusinessDay` only when the date is neither a weekend nor a financial-institution holiday.
-- Match business-day windows with `[StartTime, EndTime)`: include the start and exclude the end.
-- Keep non-business-day window fields empty. They are classified by day, not by operating window.
+- Match operating windows for business days, weekends, and holidays with `[StartTime, EndTime)`: include the start and exclude the end.
 - Surface malformed times and zero/multiple matches through `ClassificationStatus`; never silently discard them.
 
 The existing Bronze table and Gold materialized view are not modified by this module.
@@ -65,9 +64,9 @@ The function reads `DepositMovement` and enriches each Bronze row without aggreg
 3. **Construct Bangkok-local business time.** `LocalDate` is the start of the source `Date`. A regular expression extracts the first `HH:mm` value from `Time`, and that value becomes `LocalTimeOfDay`. Adding it to `LocalDate` produces `LocalDateTime`. These are Asia/Bangkok wall-clock values; the function does not perform a UTC conversion.
 4. **Classify the calendar date.** Saturday and Sunday set `IsWeekend`. A matching date in the holiday property bag sets `IsFinancialInstitutionHoliday` and supplies `HolidayName`. `IsBusinessDay` is true only when both flags are false.
 5. **Apply day-classification precedence.** `DayClassification` checks weekend first, then holiday, and otherwise returns business day. Therefore, a date present in the holiday reference that also falls on a weekend is classified as `WEEKEND`.
-6. **Evaluate operating windows per row.** `mv-apply` evaluates every reference window inside the current source row. A window matches only when the row is a business day, its parsed start time is valid, and the time is within the half-open interval `[StartTime, EndTime)`. A boundary time therefore belongs to the window that starts at that time, not the one that ends there.
-7. **Return window details only for one match.** `WindowMatchCount` records how many windows matched. The code, name, boundaries, and sort order are populated only when that count is exactly one. Non-business-day rows intentionally retain empty window fields.
-8. **Assign a processing status.** Status precedence is `INVALID_TIME_FORMAT`, non-business-day `CLASSIFIED`, `NO_WINDOW_MATCH`, `MULTIPLE_WINDOW_MATCHES`, then `CLASSIFIED`. This makes malformed `Time` values visible even on weekends or holidays while preserving the source row for investigation.
+6. **Evaluate operating windows per row.** `mv-apply` evaluates every reference window inside the current source row, regardless of day classification. A window matches when its parsed start time is valid and the time is within the half-open interval `[StartTime, EndTime)`. A boundary time therefore belongs to the window that starts at that time, not the one that ends there.
+7. **Return window details only for one match.** `WindowMatchCount` records how many windows matched. The code, name, boundaries, and sort order are populated only when that count is exactly one.
+8. **Assign a processing status.** Status precedence is `INVALID_TIME_FORMAT`, `NO_WINDOW_MATCH`, `MULTIPLE_WINDOW_MATCHES`, then `CLASSIFIED`. The same window validation applies to business days, weekends, and holidays while preserving every source row for investigation.
 9. **Project the Silver contract.** The final `project` emits the 15 Bronze columns followed by the 15 classification columns in the exact order and types required by `DepositMovementClassified`. This exact schema match is required by the update policy.
 
 The update policy invokes `Transform_DepositMovementClassified()` for newly ingested Bronze data. Because the policy is transactional, a transformation failure also fails the corresponding Bronze ingestion rather than allowing Bronze and Silver to diverge. Updating the function or its reference tables does not reprocess existing extents; historical rows require the controlled backfill or rebuild described under **Reference-data or schema changes**.
@@ -86,7 +85,7 @@ The first 15 columns are unchanged from Bronze. Silver appends:
 | `IsBusinessDay` | `bool` | Neither a weekend nor a financial-institution holiday |
 | `DayClassification` | `string` | `WEEKEND`, `HOLIDAY`, or `BUSINESS_DAY` |
 | `HolidayName` | `string` | Holiday name(s), empty when not a holiday |
-| `OperatingWindowCode` | `string` | Matched window code on a business day |
+| `OperatingWindowCode` | `string` | Matched window code for any day classification |
 | `OperatingWindowName` | `string` | Matched window display name |
 | `OperatingWindowStartTime` | `timespan` | Inclusive lower boundary |
 | `OperatingWindowEndTime` | `timespan` | Exclusive upper boundary |
@@ -132,6 +131,6 @@ DepositMovementClassified
 - Transformation preview count equals Bronze count.
 - All rows have `ClassificationStatus == "CLASSIFIED"`.
 - `IsBusinessDay` is populated and agrees with `DayClassification == "BUSINESS_DAY"`.
-- Every business-day row has exactly one operating-window match.
+- Every row with a valid `Time` has exactly one operating-window match, including business days, weekends, and holidays.
 - Weekend dates win over holiday dates.
 - Post-backfill counts reconcile by pipeline load identity.
