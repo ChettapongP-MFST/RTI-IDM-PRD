@@ -132,3 +132,8 @@ Transform_DepositMovementClassified()
 }
 
 .show function Transform_DepositMovementClassified
+
+// Validation: confirm the function runs and reference tables resolve before the
+// update policy is set. Returns empty if DepositMovement (Bronze) has no rows yet.
+Transform_DepositMovementClassified()
+| take 5
