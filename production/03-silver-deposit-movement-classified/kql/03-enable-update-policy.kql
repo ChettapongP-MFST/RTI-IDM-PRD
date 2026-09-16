@@ -2,14 +2,6 @@
 // Run only after scripts 01 and 02 succeed and reference-table validation passes.
 
 .alter table DepositMovementClassified policy update
-@'[
-  {
-    "IsEnabled": true,
-    "Source": "DepositMovement",
-    "Query": "Transform_DepositMovementClassified()",
-    "IsTransactional": true,
-    "PropagateIngestionProperties": true
-  }
-]'
+@'[{"IsEnabled": true, "Source": "DepositMovement", "Query": "Transform_DepositMovementClassified()", "IsTransactional": true, "PropagateIngestionProperties": true}]'
 
 .show table DepositMovementClassified policy update
