@@ -3,6 +3,11 @@
 // Safety rule: run the count check first. Execute the append only when Silver is
 // empty; rerunning it appends duplicate classified rows. Keep the update policy
 // enabled so Bronze rows arriving during the backfill are still classified.
+//
+// Schema upgrade: .create-merge adds IsBusinessDay but does not populate it on
+// existing Silver rows. To upgrade a populated table, pause Bronze ingestion,
+// disable the update policy, clear Silver, deploy scripts 01 and 02, re-enable
+// the policy with script 03, and then execute this backfill once.
 
 DepositMovementClassified
 | summarize SilverRowCount = count()

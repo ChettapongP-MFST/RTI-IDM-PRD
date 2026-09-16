@@ -60,7 +60,21 @@ Transform_DepositMovementClassified()
 | where IsWeekend and DayClassification != "WEEKEND"
 | project Date, Time, DayClassification, IsFinancialInstitutionHoliday, HolidayName
 
-// 8. Every configured start boundary must match exactly its own window.
+// 8. Boolean and string business-day classifications must agree. Expected: no rows.
+Transform_DepositMovementClassified()
+| where isnull(IsBusinessDay)
+    or IsBusinessDay != (DayClassification == "BUSINESS_DAY")
+| project Date, Time, IsWeekend, IsFinancialInstitutionHoliday,
+          IsBusinessDay, DayClassification
+
+// Run after backfill/live ingestion to verify persisted rows. Expected: no rows.
+DepositMovementClassified
+| where isnull(IsBusinessDay)
+    or IsBusinessDay != (DayClassification == "BUSINESS_DAY")
+| project Date, Time, IsWeekend, IsFinancialInstitutionHoliday,
+          IsBusinessDay, DayClassification
+
+// 9. Every configured start boundary must match exactly its own window.
 // This also verifies that a shared end belongs to the next window. Expected: no rows.
 let BoundaryProbes = OperatingWindowsTimes
     | project ProbeTime = StartTime, ExpectedWindowCode = WindowCode
@@ -74,13 +88,13 @@ BoundaryProbes
     by ProbeTime, ExpectedWindowCode
 | where MatchCount != 1 or ActualWindowCode != ExpectedWindowCode
 
-// 8b. The exclusive final boundary at 24:00 must match no window.
+// 9b. The exclusive final boundary at 24:00 must match no window.
 // Expected: no rows.
 print ProbeTime = 1d, _JoinKey = 1
 | join kind=inner (OperatingWindowsTimes | extend _JoinKey = 1) on _JoinKey
 | where ProbeTime >= StartTime and ProbeTime < EndTime
 
-// 9. Post-backfill/live reconciliation by immutable pipeline load identity.
+// 10. Post-backfill/live reconciliation by immutable pipeline load identity.
 // Expected after Silver catches up: no rows. During active ingestion, transient rows
 // may appear until the update policy finishes processing the newest extent.
 let BronzeByLoad = DepositMovement
@@ -99,8 +113,8 @@ BronzeByLoad
 | project file_name, pipeline_name, pipeline_runid, load_ts,
           BronzeRows, SilverRows, Difference = SilverRows - BronzeRows
 
-// 10. Distribution for operator review.
+// 11. Distribution for operator review.
 DepositMovementClassified
 | summarize Rows = count()
-    by DayClassification, OperatingWindowCode, ClassificationStatus
-| order by DayClassification asc, OperatingWindowCode asc
+    by IsBusinessDay, DayClassification, OperatingWindowCode, ClassificationStatus
+| order by IsBusinessDay desc, DayClassification asc, OperatingWindowCode asc
