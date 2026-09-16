@@ -1,0 +1,44 @@
+// Production Silver - Create the row-level classified deposit movement table.
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
+//
+// The first 15 columns exactly mirror Bronze DepositMovement. The remaining
+// columns add Bangkok-local calendar, holiday, and operating-window attributes.
+
+.create-merge table DepositMovementClassified (
+    Date:                           datetime,
+    Time:                           string,
+    Product:                        string,
+    Channel:                        string,
+    Channel_Group:                  string,
+    Credit_Amount:                  decimal,
+    Debit_Amount:                   decimal,
+    Net_Amount:                     decimal,
+    Credit_Transaction:             long,
+    Debit_Transaction:              long,
+    Total_Transaction:              long,
+    load_ts:                        datetime,
+    file_name:                      string,
+    pipeline_name:                  string,
+    pipeline_runid:                 string,
+    LocalDate:                      datetime,
+    LocalDateTime:                  datetime,
+    LocalTimeOfDay:                 timespan,
+    IsWeekend:                      bool,
+    IsFinancialInstitutionHoliday:  bool,
+    DayClassification:              string,
+    HolidayName:                    string,
+    OperatingWindowCode:            string,
+    OperatingWindowName:            string,
+    OperatingWindowStartTime:       timespan,
+    OperatingWindowEndTime:         timespan,
+    OperatingWindowSortOrder:       int,
+    WindowMatchCount:                long,
+    ClassificationStatus:           string
+)
+with (folder = "Silver")
+
+.alter table DepositMovementClassified folder "Silver"
+
+// Silver is derived data and can be rebuilt from Bronze.
+.alter-merge table DepositMovementClassified policy retention softdelete = 365d recoverability = enabled
+.alter table DepositMovementClassified policy caching hot = 90d

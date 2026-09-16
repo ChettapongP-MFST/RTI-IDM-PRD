@@ -1,0 +1,19 @@
+// OPTIONAL one-time backfill for Bronze rows that existed before the update policy.
+//
+// Safety rule: run the count check first. Execute the append only when Silver is
+// empty; rerunning it appends duplicate classified rows. Keep the update policy
+// enabled so Bronze rows arriving during the backfill are still classified.
+
+DepositMovementClassified
+| summarize SilverRowCount = count()
+
+// Expected before first backfill: SilverRowCount == 0.
+// Uncomment and run this command once only:
+// .set-or-append DepositMovementClassified <| Transform_DepositMovementClassified()
+
+DepositMovementClassified
+| summarize
+    SilverRowCount = count(),
+    EarliestDate = min(Date),
+    LatestDate = max(Date),
+    LatestLoadTimestamp = max(load_ts)
