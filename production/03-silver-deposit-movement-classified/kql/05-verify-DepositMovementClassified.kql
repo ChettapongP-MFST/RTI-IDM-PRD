@@ -1,0 +1,106 @@
+// Production Silver - Deployment, data-quality, and row-preservation checks.
+// Run each result set in the DepositMovement KQL database.
+
+// 1. Objects and policies exist.
+.show table DepositMovementClassified schema as json
+.show function Transform_DepositMovementClassified
+.show table DepositMovementClassified policy update
+
+// 2. Preview must return one transformed row per Bronze row.
+// Expected: RowDifference == 0.
+let BronzeCount = toscalar(DepositMovement | count);
+let PreviewCount = toscalar(Transform_DepositMovementClassified() | count);
+print BronzeRowCount = BronzeCount,
+      PreviewRowCount = PreviewCount,
+      RowDifference = PreviewCount - BronzeCount
+
+// 3. Reference windows must be unique, contiguous, non-overlapping, and cover 24h.
+// Expected: no rows.
+OperatingWindowsTimes
+| order by SortOrder asc
+| serialize PreviousEndTime = prev(EndTime)
+| extend HasInvalidBoundary = iff(
+    isnull(PreviousEndTime),
+    StartTime != 0s or EndTime <= StartTime,
+    StartTime != PreviousEndTime or EndTime <= StartTime)
+| where HasInvalidBoundary
+    or EndTime > 1d
+| project WindowCode, WindowName, StartTime, EndTime, SortOrder, PreviousEndTime
+
+// 4. Duplicate window codes/sort orders or incomplete day coverage.
+// Expected: no rows.
+OperatingWindowsTimes
+| summarize
+    RowCount = count(),
+    DistinctCodeCount = dcount(WindowCode),
+    DistinctSortOrderCount = dcount(SortOrder),
+    FirstStartTime = min(StartTime),
+    LastEndTime = max(EndTime)
+| where RowCount == 0
+    or DistinctCodeCount != RowCount
+    or DistinctSortOrderCount != RowCount
+    or FirstStartTime != 0s
+    or LastEndTime != 1d
+
+// 5. Duplicate holiday dates are tolerated by the function but should be reviewed.
+// Expected: no rows.
+ThailandFinancialInstitutionHoliday
+| summarize ReferenceRows = count(), HolidayNames = make_set(HolidayName)
+    by HolidayDate = startofday(HolidayDate)
+| where ReferenceRows > 1
+
+// 6. Classification exceptions. Expected: no rows.
+Transform_DepositMovementClassified()
+| where ClassificationStatus != "CLASSIFIED"
+| summarize Rows = count(), SampleTimes = make_set(Time, 10)
+    by ClassificationStatus, WindowMatchCount
+
+// 7. Weekend-first precedence. Expected: no rows.
+Transform_DepositMovementClassified()
+| where IsWeekend and DayClassification != "WEEKEND"
+| project Date, Time, DayClassification, IsFinancialInstitutionHoliday, HolidayName
+
+// 8. Every configured start boundary must match exactly its own window.
+// This also verifies that a shared end belongs to the next window. Expected: no rows.
+let BoundaryProbes = OperatingWindowsTimes
+    | project ProbeTime = StartTime, ExpectedWindowCode = WindowCode
+    | extend _JoinKey = 1;
+BoundaryProbes
+| join kind=inner (OperatingWindowsTimes | extend _JoinKey = 1) on _JoinKey
+| where ProbeTime >= StartTime and ProbeTime < EndTime
+| summarize
+    MatchCount = count(),
+    ActualWindowCode = take_any(WindowCode)
+    by ProbeTime, ExpectedWindowCode
+| where MatchCount != 1 or ActualWindowCode != ExpectedWindowCode
+
+// 8b. The exclusive final boundary at 24:00 must match no window.
+// Expected: no rows.
+print ProbeTime = 1d, _JoinKey = 1
+| join kind=inner (OperatingWindowsTimes | extend _JoinKey = 1) on _JoinKey
+| where ProbeTime >= StartTime and ProbeTime < EndTime
+
+// 9. Post-backfill/live reconciliation by immutable pipeline load identity.
+// Expected after Silver catches up: no rows. During active ingestion, transient rows
+// may appear until the update policy finishes processing the newest extent.
+let BronzeByLoad = DepositMovement
+    | summarize BronzeRows = count()
+        by file_name, pipeline_name, pipeline_runid, load_ts;
+let SilverByLoad = DepositMovementClassified
+    | summarize SilverRows = count()
+        by file_name, pipeline_name, pipeline_runid, load_ts;
+BronzeByLoad
+| join kind=fullouter SilverByLoad
+    on file_name, pipeline_name, pipeline_runid, load_ts
+| extend
+    BronzeRows = coalesce(BronzeRows, 0),
+    SilverRows = coalesce(SilverRows, 0)
+| where BronzeRows != SilverRows
+| project file_name, pipeline_name, pipeline_runid, load_ts,
+          BronzeRows, SilverRows, Difference = SilverRows - BronzeRows
+
+// 10. Distribution for operator review.
+DepositMovementClassified
+| summarize Rows = count()
+    by DayClassification, OperatingWindowCode, ClassificationStatus
+| order by DayClassification asc, OperatingWindowCode asc

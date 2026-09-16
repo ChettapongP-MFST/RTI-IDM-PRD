@@ -1,0 +1,89 @@
+// Production Silver - Create the deterministic Bronze-to-Silver transformation.
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
+//
+// Date and Time are source business values in Asia/Bangkok wall-clock time.
+// Time must use HH:mm-HH:mm. The interval start determines the operating window.
+// Precedence is WEEKEND, then HOLIDAY, then BUSINESS_DAY.
+
+.create-or-alter function with (
+    docstring = "Classify row-level DepositMovement records by Bangkok business day and operating window",
+    folder = "Silver"
+)
+Transform_DepositMovementClassified()
+{
+    // A scalar property bag avoids a join in the update-policy query. Fabric
+    // otherwise requires streaming ingestion to be disabled on the source table.
+    let HolidayByDate = toscalar(
+        ThailandFinancialInstitutionHoliday
+        | summarize HolidayName = min(HolidayName)
+            by HolidayDate = startofday(HolidayDate)
+        | extend HolidayDateKey = format_datetime(HolidayDate, "yyyy-MM-dd")
+        | summarize Holidays = make_bag(bag_pack(HolidayDateKey, HolidayName))
+    );
+    let Windows = toscalar(
+        OperatingWindowsTimes
+        | order by SortOrder asc
+        | summarize WindowDefinitions = make_list(pack(
+            "WindowCode", WindowCode,
+            "WindowName", WindowName,
+            "StartTime", StartTime,
+            "EndTime", EndTime,
+            "SortOrder", SortOrder))
+    );
+    DepositMovement
+    | extend
+        LocalDate = startofday(Date),
+        _TimeStartText = extract(@"^([0-9]{2}:[0-9]{2})-[0-9]{2}:[0-9]{2}$", 1, Time)
+    | extend LocalTimeOfDay = totimespan(strcat(_TimeStartText, ":00"))
+    | extend LocalDateTime = LocalDate + LocalTimeOfDay
+    | extend
+        IsWeekend = dayofweek(LocalDate) in (0d, 6d),
+        _LocalDateKey = format_datetime(LocalDate, "yyyy-MM-dd")
+    | extend
+        IsFinancialInstitutionHoliday = bag_has_key(HolidayByDate, _LocalDateKey),
+        HolidayName = tostring(HolidayByDate[_LocalDateKey])
+    | extend DayClassification = case(
+        IsWeekend, "WEEKEND",
+        IsFinancialInstitutionHoliday, "HOLIDAY",
+        "BUSINESS_DAY")
+    // mv-apply evaluates all reference ranges inside each source row. The summarize
+    // returns one result per input row, including malformed or unmatched rows.
+    | mv-apply _Window = Windows to typeof(dynamic) on (
+        extend
+            _WindowStart = totimespan(_Window["StartTime"]),
+            _WindowEnd = totimespan(_Window["EndTime"])
+        | extend _IsWindowMatch =
+            DayClassification == "BUSINESS_DAY"
+            and isnotnull(LocalTimeOfDay)
+            and LocalTimeOfDay >= _WindowStart
+            and LocalTimeOfDay < _WindowEnd
+        | summarize
+            WindowMatchCount = countif(_IsWindowMatch),
+            _MatchedWindows = make_list_if(_Window, _IsWindowMatch)
+    )
+    | extend _MatchedWindow = _MatchedWindows[0]
+    | extend
+        OperatingWindowCode = iff(WindowMatchCount == 1, tostring(_MatchedWindow["WindowCode"]), ""),
+        OperatingWindowName = iff(WindowMatchCount == 1, tostring(_MatchedWindow["WindowName"]), ""),
+        OperatingWindowStartTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow["StartTime"]), timespan(null)),
+        OperatingWindowEndTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow["EndTime"]), timespan(null)),
+        OperatingWindowSortOrder = iff(WindowMatchCount == 1, toint(_MatchedWindow["SortOrder"]), int(null)),
+        ClassificationStatus = case(
+            isempty(_TimeStartText), "INVALID_TIME_FORMAT",
+            DayClassification != "BUSINESS_DAY", "CLASSIFIED",
+            WindowMatchCount == 0, "NO_WINDOW_MATCH",
+            WindowMatchCount > 1, "MULTIPLE_WINDOW_MATCHES",
+            "CLASSIFIED")
+    | project
+        Date, Time, Product, Channel, Channel_Group,
+        Credit_Amount, Debit_Amount, Net_Amount,
+        Credit_Transaction, Debit_Transaction, Total_Transaction,
+        load_ts, file_name, pipeline_name, pipeline_runid,
+        LocalDate, LocalDateTime, LocalTimeOfDay,
+        IsWeekend, IsFinancialInstitutionHoliday, DayClassification, HolidayName,
+        OperatingWindowCode, OperatingWindowName,
+        OperatingWindowStartTime, OperatingWindowEndTime, OperatingWindowSortOrder,
+        WindowMatchCount, ClassificationStatus
+}
+
+.show function Transform_DepositMovementClassified
