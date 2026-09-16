@@ -1,0 +1,23 @@
+// Run after uploading thailand-financial-institution-holidays-2026.csv.
+
+.show table ThailandFinancialInstitutionHoliday schema as json
+.show table ThailandFinancialInstitutionHoliday ingestion csv mappings
+
+// Expected for the 2026 export: 20 rows, 20 distinct dates, no duplicate dates.
+ThailandFinancialInstitutionHoliday
+| where HolidayDate between (datetime(2026-01-01) .. datetime(2026-12-31))
+| summarize
+    RowCount = count(),
+    DistinctDateCount = dcount(HolidayDate),
+    FirstHoliday = min(HolidayDate),
+    LastHoliday = max(HolidayDate)
+
+ThailandFinancialInstitutionHoliday
+| summarize RowCount = count() by HolidayDate, Applicability
+| where RowCount > 1
+
+// Gold's default Thailand public-holiday lookup should use Nationwide rows only.
+ThailandFinancialInstitutionHoliday
+| where HolidayDate between (datetime(2026-01-01) .. datetime(2026-12-31))
+| order by HolidayDate asc
+| project HolidayDate, HolidayName, Applicability, CountryCode, SourceURL

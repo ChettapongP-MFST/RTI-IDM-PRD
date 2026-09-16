@@ -170,6 +170,66 @@ DepositMovement | count
 
 ---
 
+## P1.6 — Thailand Financial-Institution Holidays
+
+The Gold alert model uses the Bank of Thailand (BOT) financial-institution calendar to distinguish business days from public holidays. The checked-in [2026 CSV export](data/thailand-financial-institution-holidays-2026.csv) is normalized from the official [Financial Institutions Holiday](https://www.bot.or.th/en/financial-institutions-holiday.html) page.
+
+The export includes an `Applicability` column. Gold queries should use `Applicability == "Nationwide"` by default. The 16 October 2026 entry applies only in Bangkok and must be included only when the monitored operation is in Bangkok.
+
+### Create the reference table
+
+Run [kql/04-create-ThailandFinancialInstitutionHoliday.kql](kql/04-create-ThailandFinancialInstitutionHoliday.kql) in the `DepositMovement` KQL database.
+
+### Upload the CSV
+
+1. In the `DepositMovement` KQL database, select **Get data** > **Local file**.
+2. Select [data/thailand-financial-institution-holidays-2026.csv](data/thailand-financial-institution-holidays-2026.csv).
+3. Choose the existing table `ThailandFinancialInstitutionHoliday`.
+4. Set the format to **CSV**, enable **First row is column headers**, and select `ThailandFinancialInstitutionHoliday_mapping`.
+5. Complete ingestion, then run [kql/05-verify-ThailandFinancialInstitutionHoliday.kql](kql/05-verify-ThailandFinancialInstitutionHoliday.kql).
+
+For each new calendar year, export the BOT page to the same five-column schema and upload it once. Do not replace prior-year rows. Check the verification query before retrying an upload so a completed ingestion is not duplicated.
+
+### One-time portal upload to a Bronze table
+
+To let an operator create the requested table directly from the CSV without first running the KQL creation script:
+
+1. Open Eventhouse `eh-rti-deposit`, then open the `DepositMovement` KQL database.
+2. Select **Get data** > **Local file**.
+3. Upload [data/thailand-financial-institution-holidays-2026.csv](data/thailand-financial-institution-holidays-2026.csv).
+4. Choose **New table** and enter `thailand-financial-institution-holidays`.
+5. Select **CSV**, enable **First row contains column names**, and confirm the inferred schema:
+
+   | Column | Type |
+   |---|---|
+   | `HolidayDate` | `datetime` |
+   | `HolidayName` | `string` |
+   | `Applicability` | `string` |
+   | `CountryCode` | `string` |
+   | `SourceURL` | `string` |
+
+6. Complete the ingestion.
+7. Run the following command to place the table in the `Bronze` folder:
+
+```kusto
+.alter table ['thailand-financial-institution-holidays'] folder "Bronze"
+```
+
+Because the table name contains hyphens, escape it with `['...']` in every KQL statement. Verify the upload with:
+
+```kusto
+['thailand-financial-institution-holidays']
+| summarize
+	TotalRows = count(),
+	NationwideRows = countif(Applicability == "Nationwide"),
+	BangkokRows = countif(Applicability == "Bangkok"),
+	DistinctDates = dcount(HolidayDate)
+```
+
+Expected values are 20 total rows, 19 nationwide rows, one Bangkok row, and 20 distinct dates.
+
+---
+
 ## ✅ Exit Criteria
 
 Before proceeding to **[Production 02](../02-warehouse-control/)**, verify:
@@ -182,5 +242,7 @@ Before proceeding to **[Production 02](../02-warehouse-control/)**, verify:
 - [ ] Retention policy = 365 days
 - [ ] Hot cache policy = 90 days
 - [ ] Table count = 0 (ready for pipeline ingestion)
+- [ ] `ThailandFinancialInstitutionHoliday` exists with its named CSV mapping
+- [ ] The 2026 holiday export contains 20 distinct dates
 
 → Proceed to **[Production 02 — Warehouse Control Table](../02-warehouse-control/)**

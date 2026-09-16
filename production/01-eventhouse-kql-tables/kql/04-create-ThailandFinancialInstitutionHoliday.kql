@@ -1,0 +1,21 @@
+// Production 01 - Create the Bank of Thailand financial-institution holiday reference table.
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
+// CSV format: comma-delimited with one header row.
+
+.create-merge table ThailandFinancialInstitutionHoliday (
+    HolidayDate:   datetime,
+    HolidayName:   string,
+    Applicability: string,
+    CountryCode:   string,
+    SourceURL:     string
+)
+with (folder = "Reference")
+
+.alter table ThailandFinancialInstitutionHoliday folder "Reference"
+
+.create-or-alter table ThailandFinancialInstitutionHoliday ingestion csv mapping 'ThailandFinancialInstitutionHoliday_mapping'
+'[{"Column":"HolidayDate","Properties":{"Ordinal":"0"}},{"Column":"HolidayName","Properties":{"Ordinal":"1"}},{"Column":"Applicability","Properties":{"Ordinal":"2"}},{"Column":"CountryCode","Properties":{"Ordinal":"3"}},{"Column":"SourceURL","Properties":{"Ordinal":"4"}}]'
+
+// Keep ten calendar years online and cache the complete reference table.
+.alter-merge table ThailandFinancialInstitutionHoliday policy retention softdelete = 3650d recoverability = enabled
+.alter table ThailandFinancialInstitutionHoliday policy caching hot = 3650d
