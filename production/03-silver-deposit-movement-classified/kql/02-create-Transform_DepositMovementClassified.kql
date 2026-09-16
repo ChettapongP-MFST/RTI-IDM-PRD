@@ -42,6 +42,8 @@ Transform_DepositMovementClassified()
     | extend
         IsFinancialInstitutionHoliday = bag_has_key(HolidayByDate, _LocalDateKey),
         HolidayName = tostring(HolidayByDate[_LocalDateKey])
+    | extend IsBusinessDay = not(IsWeekend)
+        and not(IsFinancialInstitutionHoliday)
     | extend DayClassification = case(
         IsWeekend, "WEEKEND",
         IsFinancialInstitutionHoliday, "HOLIDAY",
@@ -53,7 +55,7 @@ Transform_DepositMovementClassified()
             _WindowStart = totimespan(_Window["StartTime"]),
             _WindowEnd = totimespan(_Window["EndTime"])
         | extend _IsWindowMatch =
-            DayClassification == "BUSINESS_DAY"
+            IsBusinessDay
             and isnotnull(LocalTimeOfDay)
             and LocalTimeOfDay >= _WindowStart
             and LocalTimeOfDay < _WindowEnd
@@ -70,7 +72,7 @@ Transform_DepositMovementClassified()
         OperatingWindowSortOrder = iff(WindowMatchCount == 1, toint(_MatchedWindow["SortOrder"]), int(null)),
         ClassificationStatus = case(
             isempty(_TimeStartText), "INVALID_TIME_FORMAT",
-            DayClassification != "BUSINESS_DAY", "CLASSIFIED",
+            not(IsBusinessDay), "CLASSIFIED",
             WindowMatchCount == 0, "NO_WINDOW_MATCH",
             WindowMatchCount > 1, "MULTIPLE_WINDOW_MATCHES",
             "CLASSIFIED")
@@ -80,7 +82,8 @@ Transform_DepositMovementClassified()
         Credit_Transaction, Debit_Transaction, Total_Transaction,
         load_ts, file_name, pipeline_name, pipeline_runid,
         LocalDate, LocalDateTime, LocalTimeOfDay,
-        IsWeekend, IsFinancialInstitutionHoliday, DayClassification, HolidayName,
+        IsWeekend, IsFinancialInstitutionHoliday, IsBusinessDay,
+        DayClassification, HolidayName,
         OperatingWindowCode, OperatingWindowName,
         OperatingWindowStartTime, OperatingWindowEndTime, OperatingWindowSortOrder,
         WindowMatchCount, ClassificationStatus

@@ -25,6 +25,7 @@
     LocalTimeOfDay:                 timespan,
     IsWeekend:                      bool,
     IsFinancialInstitutionHoliday:  bool,
+    IsBusinessDay:                  bool,
     DayClassification:              string,
     HolidayName:                    string,
     OperatingWindowCode:            string,
