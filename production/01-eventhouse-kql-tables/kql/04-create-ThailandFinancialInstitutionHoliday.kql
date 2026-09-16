@@ -11,10 +11,10 @@
 )
 with (folder = "Reference")
 
-.alter table ThailandFinancialInstitutionHoliday folder "Reference"
+// .alter table ThailandFinancialInstitutionHoliday folder "Reference"
 
-.create-or-alter table ThailandFinancialInstitutionHoliday ingestion csv mapping 'ThailandFinancialInstitutionHoliday_mapping'
-'[{"Column":"HolidayDate","Properties":{"Ordinal":"0"}},{"Column":"HolidayName","Properties":{"Ordinal":"1"}},{"Column":"Applicability","Properties":{"Ordinal":"2"}},{"Column":"CountryCode","Properties":{"Ordinal":"3"}},{"Column":"SourceURL","Properties":{"Ordinal":"4"}}]'
+// .create-or-alter table ThailandFinancialInstitutionHoliday ingestion csv mapping 'ThailandFinancialInstitutionHoliday_mapping'
+// '[{"Column":"HolidayDate","Properties":{"Ordinal":"0"}},{"Column":"HolidayName","Properties":{"Ordinal":"1"}},{"Column":"Applicability","Properties":{"Ordinal":"2"}},{"Column":"CountryCode","Properties":{"Ordinal":"3"}},{"Column":"SourceURL","Properties":{"Ordinal":"4"}}]'
 
 // Keep ten calendar years online and cache the complete reference table.
 .alter-merge table ThailandFinancialInstitutionHoliday policy retention softdelete = 3650d recoverability = enabled

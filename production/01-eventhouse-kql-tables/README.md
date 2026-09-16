@@ -174,7 +174,7 @@ DepositMovement | count
 
 The Gold alert model uses the Bank of Thailand (BOT) financial-institution calendar to distinguish business days from public holidays. The checked-in [2026 CSV export](data/thailand-financial-institution-holidays-2026.csv) is normalized from the official [Financial Institutions Holiday](https://www.bot.or.th/en/financial-institutions-holiday.html) page.
 
-The export includes an `Applicability` column. Gold queries should use `Applicability == "Nationwide"` by default. The 16 October 2026 entry applies only in Bangkok and must be included only when the monitored operation is in Bangkok.
+Treat every record in the export as a public holiday by default. Preserve the source `Applicability` value as metadata for future specialized use, but do not filter normal Gold holiday lookups by this column.
 
 ### Create the reference table
 
@@ -189,6 +189,19 @@ Run [kql/04-create-ThailandFinancialInstitutionHoliday.kql](kql/04-create-Thaila
 5. Complete ingestion, then run [kql/05-verify-ThailandFinancialInstitutionHoliday.kql](kql/05-verify-ThailandFinancialInstitutionHoliday.kql).
 
 For each new calendar year, export the BOT page to the same five-column schema and upload it once. Do not replace prior-year rows. Check the verification query before retrying an upload so a completed ingestion is not duplicated.
+
+### Replace an incorrect holiday year
+
+If a published year must be corrected, use [kql/08-replace-ThailandFinancialInstitutionHoliday-year.kql](kql/08-replace-ThailandFinancialInstitutionHoliday-year.kql). Replace every occurrence of both date boundaries with the target-year boundaries, then run each step separately:
+
+1. Preview the matching records and run the `whatif=true` command.
+2. Confirm that only the intended year and expected row count are selected.
+3. Uncomment and run the destructive `.delete` command by itself. The operation is irreversible and requires database-admin permission.
+4. Verify that the target year contains zero rows.
+5. Upload the corrected CSV to `ThailandFinancialInstitutionHoliday` using `ThailandFinancialInstitutionHoliday_mapping`, with **First row is column headers** enabled.
+6. Run the replacement checks for row count, distinct dates, duplicates, and record details.
+
+The script uses a half-open date range, including 1 January of the target year and excluding 1 January of the next year, so records from adjacent years are preserved.
 
 ### One-time portal upload to a Reference table
 
@@ -226,7 +239,7 @@ Because the table name contains hyphens, escape it with `['...']` in every KQL s
 	DistinctDates = dcount(HolidayDate)
 ```
 
-Expected values are 20 total rows, 19 nationwide rows, one Bangkok row, and 20 distinct dates.
+Expected values are 20 total rows, 19 nationwide rows, one Bangkok row, and 20 distinct dates. The applicability breakdown validates the source metadata; all 20 rows remain part of the default holiday calendar.
 
 ---
 

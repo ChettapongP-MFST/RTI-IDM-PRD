@@ -1,0 +1,19 @@
+// Production 01 - Create the recurring operating-window reference table.
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
+// Times are Asia/Bangkok offsets from local midnight; windows use [StartTime, EndTime).
+
+.create-merge table OperatingWindowsTimes (
+    WindowCode: string,
+    WindowName: string,
+    StartTime:  timespan,
+    EndTime:    timespan,
+    SortOrder:  int
+)
+with (folder = "Reference")
+
+.create-or-alter table OperatingWindowsTimes ingestion csv mapping 'OperatingWindowsTimes_mapping'
+'[{"Column":"WindowCode","Properties":{"Ordinal":"0"}},{"Column":"WindowName","Properties":{"Ordinal":"1"}},{"Column":"StartTime","Properties":{"Ordinal":"2"}},{"Column":"EndTime","Properties":{"Ordinal":"3"}},{"Column":"SortOrder","Properties":{"Ordinal":"4"}}]'
+
+// Keep the static reference rows online and cached for ten years.
+.alter-merge table OperatingWindowsTimes policy retention softdelete = 3650d recoverability = enabled
+.alter table OperatingWindowsTimes policy caching hot = 3650d

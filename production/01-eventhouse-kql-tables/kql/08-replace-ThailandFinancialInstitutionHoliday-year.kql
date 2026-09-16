@@ -1,0 +1,54 @@
+// Replace one calendar year in ThailandFinancialInstitutionHoliday.
+// Run each step separately. This example targets 2026. For another year, replace
+// EVERY occurrence of both date boundaries before running any step.
+
+// Step 1: Preview the rows selected for deletion.
+ThailandFinancialInstitutionHoliday
+| where HolidayDate >= datetime(2026-01-01)
+    and HolidayDate < datetime(2027-01-01)
+| order by HolidayDate asc
+| project HolidayDate, HolidayName, Applicability, CountryCode, SourceURL
+
+// Step 2: Confirm the number of matching rows without deleting them.
+// Check the RecordsMatchPredicate values in the command result.
+.delete table ThailandFinancialInstitutionHoliday records with (whatif=true) <|
+    ThailandFinancialInstitutionHoliday
+    | where HolidayDate >= datetime(2026-01-01)
+        and HolidayDate < datetime(2027-01-01)
+
+// Step 3: DESTRUCTIVE AND IRREVERSIBLE. Remove the leading // only after the
+// preview and what-if results match the intended year, then run this command alone.
+// .delete table ThailandFinancialInstitutionHoliday records <|
+//     ThailandFinancialInstitutionHoliday
+//     | where HolidayDate >= datetime(2026-01-01)
+//         and HolidayDate < datetime(2027-01-01)
+
+// Step 4: After deletion completes, this query must return RowCount = 0.
+ThailandFinancialInstitutionHoliday
+| where HolidayDate >= datetime(2026-01-01)
+    and HolidayDate < datetime(2027-01-01)
+| summarize RowCount = count()
+
+// Step 5: Manually upload the corrected CSV using
+// ThailandFinancialInstitutionHoliday_mapping, then verify the replacement.
+// The expected 2026 export has 20 rows and 20 distinct dates.
+ThailandFinancialInstitutionHoliday
+| where HolidayDate >= datetime(2026-01-01)
+    and HolidayDate < datetime(2027-01-01)
+| summarize
+    RowCount = count(),
+    DistinctDateCount = dcount(HolidayDate),
+    FirstHoliday = min(HolidayDate),
+    LastHoliday = max(HolidayDate)
+
+ThailandFinancialInstitutionHoliday
+| where HolidayDate >= datetime(2026-01-01)
+    and HolidayDate < datetime(2027-01-01)
+| summarize RowCount = count() by HolidayDate, Applicability
+| where RowCount > 1
+
+ThailandFinancialInstitutionHoliday
+| where HolidayDate >= datetime(2026-01-01)
+    and HolidayDate < datetime(2027-01-01)
+| order by HolidayDate asc
+| project HolidayDate, HolidayName, Applicability, CountryCode, SourceURL

@@ -16,7 +16,7 @@ ThailandFinancialInstitutionHoliday
 | summarize RowCount = count() by HolidayDate, Applicability
 | where RowCount > 1
 
-// Gold's default Thailand public-holiday lookup should use Nationwide rows only.
+// Treat every row as a public holiday by default. Applicability is retained as source metadata.
 ThailandFinancialInstitutionHoliday
 | where HolidayDate between (datetime(2026-01-01) .. datetime(2026-12-31))
 | order by HolidayDate asc

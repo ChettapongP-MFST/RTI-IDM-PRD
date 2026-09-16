@@ -1,0 +1,39 @@
+// Run after uploading operating-windows-times.csv.
+
+.show table OperatingWindowsTimes schema as json
+.show table OperatingWindowsTimes ingestion csv mappings
+
+// Expected: 4 rows, 4 distinct codes, sort orders 1 through 4,
+// a first boundary of 00:00, and a final boundary of 24:00 (1 day).
+OperatingWindowsTimes
+| summarize
+    RowCount = count(),
+    DistinctCodeCount = dcount(WindowCode),
+    DistinctSortOrderCount = dcount(SortOrder),
+    FirstStartTime = min(StartTime),
+    LastEndTime = max(EndTime)
+
+// Expected: no rows. This detects duplicate codes or sort orders.
+OperatingWindowsTimes
+| summarize CodeCount = dcount(WindowCode), SortOrderCount = dcount(SortOrder), RowCount = count()
+| where CodeCount != RowCount or SortOrderCount != RowCount
+
+// Expected: no rows. This detects invalid, overlapping, or gapped windows.
+OperatingWindowsTimes
+| order by SortOrder asc
+| serialize PreviousEndTime = prev(EndTime)
+| extend HasInvalidBoundary = iff(
+    isnull(PreviousEndTime),
+    StartTime != 0s or EndTime <= StartTime,
+    StartTime != PreviousEndTime or EndTime <= StartTime)
+| where HasInvalidBoundary
+| project WindowCode, WindowName, StartTime, EndTime, SortOrder, PreviousEndTime
+
+// Expected: no rows. This confirms the ordered sequence ends at 24:00.
+OperatingWindowsTimes
+| summarize LastEndTime = max(EndTime)
+| where LastEndTime != 1d
+
+OperatingWindowsTimes
+| order by SortOrder asc
+| project WindowCode, WindowName, StartTime, EndTime, SortOrder
