@@ -1,6 +1,13 @@
 // Production Silver - Classify each new Bronze ingestion automatically.
 // Run only after scripts 01 and 02 succeed and reference-table validation passes.
 
+// Fabric enables streaming ingestion by default. An update policy whose function
+// reads tables other than the source (here: ThailandFinancialInstitutionHoliday and
+// OperatingWindowsTimes via toscalar) is rejected while the source table has streaming
+// ingestion enabled (InvalidPolicyOperationException). Disable it on the Bronze source
+// first. Bronze then ingests via queued (batched) ingestion.
+.alter table DepositMovement policy streamingingestion disable
+
 .alter table DepositMovementClassified policy update
 @'[{"IsEnabled": true, "Source": "DepositMovement", "Query": "Transform_DepositMovementClassified()", "IsTransactional": true, "PropagateIngestionProperties": true}]'
 
