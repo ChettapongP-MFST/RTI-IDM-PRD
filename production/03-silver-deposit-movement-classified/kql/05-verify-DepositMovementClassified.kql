@@ -55,12 +55,25 @@ Transform_DepositMovementClassified()
 | summarize Rows = count(), SampleTimes = make_set(Time, 10)
     by ClassificationStatus, WindowMatchCount
 
-// 7. Weekend-first precedence. Expected: no rows.
+// 7. Every valid time must match exactly one window for every day classification.
+// Expected: no rows.
+Transform_DepositMovementClassified()
+| where isnotnull(LocalTimeOfDay) and WindowMatchCount != 1
+| project Date, Time, DayClassification, HolidayName,
+          WindowMatchCount, ClassificationStatus
+
+// Run after backfill/live ingestion to verify persisted rows. Expected: no rows.
+DepositMovementClassified
+| where isnotnull(LocalTimeOfDay) and WindowMatchCount != 1
+| project Date, Time, DayClassification, HolidayName,
+          WindowMatchCount, ClassificationStatus
+
+// 8. Weekend-first precedence. Expected: no rows.
 Transform_DepositMovementClassified()
 | where IsWeekend and DayClassification != "WEEKEND"
 | project Date, Time, DayClassification, IsFinancialInstitutionHoliday, HolidayName
 
-// 8. Boolean and string business-day classifications must agree. Expected: no rows.
+// 9. Boolean and string business-day classifications must agree. Expected: no rows.
 Transform_DepositMovementClassified()
 | where isnull(IsBusinessDay)
     or IsBusinessDay != (DayClassification == "BUSINESS_DAY")
@@ -74,7 +87,7 @@ DepositMovementClassified
 | project Date, Time, IsWeekend, IsFinancialInstitutionHoliday,
           IsBusinessDay, DayClassification
 
-// 9. Every configured start boundary must match exactly its own window.
+// 10. Every configured start boundary must match exactly its own window.
 // This also verifies that a shared end belongs to the next window. Expected: no rows.
 let BoundaryProbes = OperatingWindowsTimes
     | project ProbeTime = StartTime, ExpectedWindowCode = WindowCode
@@ -88,13 +101,13 @@ BoundaryProbes
     by ProbeTime, ExpectedWindowCode
 | where MatchCount != 1 or ActualWindowCode != ExpectedWindowCode
 
-// 9b. The exclusive final boundary at 24:00 must match no window.
+// 10b. The exclusive final boundary at 24:00 must match no window.
 // Expected: no rows.
 print ProbeTime = 1d, _JoinKey = 1
 | join kind=inner (OperatingWindowsTimes | extend _JoinKey = 1) on _JoinKey
 | where ProbeTime >= StartTime and ProbeTime < EndTime
 
-// 10. Post-backfill/live reconciliation by immutable pipeline load identity.
+// 11. Post-backfill/live reconciliation by immutable pipeline load identity.
 // Expected after Silver catches up: no rows. During active ingestion, transient rows
 // may appear until the update policy finishes processing the newest extent.
 let BronzeByLoad = DepositMovement
@@ -113,7 +126,7 @@ BronzeByLoad
 | project file_name, pipeline_name, pipeline_runid, load_ts,
           BronzeRows, SilverRows, Difference = SilverRows - BronzeRows
 
-// 11. Distribution for operator review.
+// 12. Distribution for operator review.
 DepositMovementClassified
 | summarize Rows = count()
     by IsBusinessDay, DayClassification, OperatingWindowCode, ClassificationStatus
