@@ -190,7 +190,7 @@ Run [kql/04-create-ThailandFinancialInstitutionHoliday.kql](kql/04-create-Thaila
 
 For each new calendar year, export the BOT page to the same five-column schema and upload it once. Do not replace prior-year rows. Check the verification query before retrying an upload so a completed ingestion is not duplicated.
 
-### One-time portal upload to a Bronze table
+### One-time portal upload to a Reference table
 
 To let an operator create the requested table directly from the CSV without first running the KQL creation script:
 
@@ -209,10 +209,10 @@ To let an operator create the requested table directly from the CSV without firs
    | `SourceURL` | `string` |
 
 6. Complete the ingestion.
-7. Run the following command to place the table in the `Bronze` folder:
+7. Run the following command to place the table in the `Reference` folder:
 
 ```kusto
-.alter table ['thailand-financial-institution-holidays'] folder "Bronze"
+.alter table ['thailand-financial-institution-holidays'] folder "Reference"
 ```
 
 Because the table name contains hyphens, escape it with `['...']` in every KQL statement. Verify the upload with:
