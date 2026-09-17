@@ -47,7 +47,7 @@ These select **which threshold applies**; they do not change how an indicator is
 | `AFTERNOON_WORKING_HOUR` | 12:00 – 17:30 |
 | `AFTER_WORKING_HOUR` | 17:30 – 24:00 |
 
-**3 Day types** (from Silver `DayClassification`): `BUSINESS_DAY`, `WEEKEND`, `HOLIDAY` (= "Public Holiday").
+**3 Day types** (from Silver `DayClassification`): `BUSINESS_DAY`, `WEEKEND`, `HOLIDAY`.
 
 **3 Event flags** (from Silver): `IsMonthEnd`, `IsPayroll`, `IsLongWeekend` (`EventFlag`). Carried for context and future threshold overrides.
 
@@ -60,25 +60,26 @@ These select **which threshold applies**; they do not change how an indicator is
 | `L2` | Warning | `P90 to < P95` |
 | `L3` | Critical | `P95 up` |
 
-> The `P80/P90/P95` percentiles are the **derivation basis** documented by the business;
-> the threshold tabs provide **absolute values** per cell. In this design those numbers are
-> entered as **rule conditions in Activator** (see *Alerting model* below), not computed live.
+> **Threshold model (confirmed):** the trigger compares each value to an **absolute Trigger
+> Amount** (THB) → L0–L3. Those amounts are **calibrated from historical percentiles**
+> (`P80/P90/P95` of the *same 30-min bucket, day type, and scope*) during a backtesting phase;
+> the **percentile rank stays as drill-down / methodology, not the primary KPI**. Phase 1 emits
+> the raw values and compares them against the amounts in Activator; the percentile calibration
+> is a downstream artifact.
 
 ---
 
-## Measurement period (working assumption)
+## Measurement period (confirmed)
 
 Each indicator is computed **per current 30-minute bucket** (periodic), **except**:
 
 - **#3 Accum Net Outflow** — cumulative from **00:00** to the current bucket.
-- **#5 Transaction Velocity** — current bucket ÷ **expanding** average of all prior buckets that day.
+- **#5 Transaction Velocity** — current bucket ÷ average of the **prior N=4** 30-min buckets (configurable; `N=0` = expanding all-day).
 
 The comparable-time **window + day type** are emitted as **filter columns** for Activator;
 they do **not** change the measurement span.
 
-> ⚠️ **Open point to confirm:** whether #1/#2/#4/#6 should instead be *window-to-date*
-> (accumulated within the current comparable-time window). This README assumes **30-minute
-> periodic**; change here if window-to-date is intended.
+> ✅ **Confirmed:** #1/#2/#4/#6 are **30-minute periodic**.
 
 ---
 
@@ -101,9 +102,9 @@ DebitTxn_b     = sum(Debit_Transaction)                   // count
 | 3 | Accum Net Outflow | Deposit outflow | MB | value **≤** threshold (negative) |
 | 4 | Debit Transaction Count | Traffic | Million | value **≥** threshold |
 | 5 | Transaction Velocity | Traffic | X (ratio) | value **≥** threshold |
-| 6 | Average Debit Amount | Large Value Movement | MB | value **≥** threshold |
-| 7 | Cluster Share | Concentration | ratio/% | *thresholds pending (`xx`)* |
-| 8 | Sudden Share Jump | Concentration | ratio/% | *thresholds pending (`xx`)* |
+| 6 | Average Debit Amount | Large Value Movement | K THB | value **≥** threshold |
+| 7 | Cluster Share | Concentration | % (0–100) | value **≥** threshold *(numbers pending)* |
+| 8 | Sudden Share Jump | Concentration | pp | value **≥** threshold *(numbers pending)* |
 
 ### 1. Gross Outflow — `Sum(Debit_Amount)`
 Total money **leaving** in the bucket (debit volume). A high gross outflow is the first
@@ -146,60 +147,68 @@ DebitTxn_M = DebitTxn_b / 1000000.0                        // in millions
 - **Breach:** `DebitTxn_M >= threshold`.
 
 ### 5. Transaction Velocity — `Current Debit_Transaction / Avg. prior N buckets`
-Ratio of the current bucket's debit count to the **average of all prior 30-minute buckets
-that day** (00:00 → current − 1). `N` is the **expanding** number of available prior
-buckets (grows through the day), not a fixed window.
+Ratio of the current bucket's debit count to the **average of the prior `N` 30-minute
+buckets** (default **N = 4** → the last 2 hours, per the customer dashboards). `N` is a
+configurable parameter (`VelocityN`); set `N = 0` for an expanding all-day average.
 
 ```kql
-// per (Scope, Date) ordered by bucket ascending
+// per (Scope, Date), ordered by bucket ascending; N = 4
 | serialize
-| extend _priorSum   = row_cumsum(DebitTxn_b) - DebitTxn_b     // sum of prior buckets
-| extend _priorCount = row_cumsum(1) - 1                        // N = number of prior buckets
-| extend AvgPrior    = iff(_priorCount > 0, _priorSum / _priorCount, real(null))
-| extend Velocity    = iff(isnull(AvgPrior) or AvgPrior == 0, real(null), DebitTxn_b / AvgPrior)
+| extend AvgPriorN = (prev(DebitTxn_b,1) + prev(DebitTxn_b,2) + prev(DebitTxn_b,3) + prev(DebitTxn_b,4)) / 4.0
+| extend Velocity  = iff(isnull(AvgPriorN) or AvgPriorN == 0, real(null), DebitTxn_b / AvgPriorN)
 ```
-- **Example:** current 08:00–08:30 → N = 16 prior buckets; current 09:00–09:30 → N = 18.
-  If the current bucket has 800 debits and the prior average is 375 → Velocity = **2.13×**.
-- **Detects:** an abrupt spike in transaction pace relative to the day's own baseline.
+- **Example (N=4):** current 14:30–15:00 has 620 K debits; the prior four buckets average
+  ~437 K → Velocity = **1.42×** (matches the customer dashboard).
+- **Detects:** an abrupt spike in transaction pace vs the recent 2-hour baseline.
 - **Breach:** `Velocity >= threshold` (e.g. L1 1.5, L2 2.0, L3 3.0).
-- **Guardrails:** first bucket of the day (no prior) or a zero baseline → `null` → Normal.
-  "Available" prior buckets = buckets that have data; truly-empty slots are excluded.
+- **Guardrails:** fewer than `N` prior buckets (start of day) or a zero baseline → `null` → Normal.
 
 ### 6. Average Debit Amount — `Gross Outflow / Debit_Transaction`
 Mean value per debit transaction — a **large-value-movement** signal (a few big tickets
 rather than many small ones).
 
 ```kql
-AvgDebit_MB = iff(DebitTxn_b > 0, (GrossOutflow_b / DebitTxn_b) / 1000000.0, real(null))
+AvgDebit_KThb = iff(DebitTxn_b > 0, (GrossOutflow_b / DebitTxn_b) / 1000.0, real(null))
 ```
+- **Unit:** **K THB** per transaction (the average ticket rarely reaches millions, so the K scale is used, per the dashboard).
 - **Detects:** unusually large average ticket size (institutional / high-value withdrawals).
-- **Breach:** `AvgDebit_MB >= threshold`.
+- **Breach:** `AvgDebit_KThb >= threshold`.
 - **Guardrail:** `DebitTxn_b = 0` → `null` → Normal.
 
-### 7. Cluster Share (Retails vs Non-Retails) — `Cluster net outflow / Total-bank net outflow`
-Share of the bank's net outflow concentrated in a cluster (Retails or Non-Retails).
-A **concentration** signal: outflow bunching into one channel group.
+### 7. Cluster Share (Retails vs Non-Retails) — `Cluster net outflow ÷ total cluster outflow`
+Concentration signal: how much of the bank's **draining** comes from one channel group.
+Computed on the **draining magnitude** so it stays bounded 0–100% and is easy to threshold.
 
 ```kql
-RetailsShare    = iff(Net_Total != 0, Net_Retails    / Net_Total, real(null))
-NonRetailsShare = iff(Net_Total != 0, Net_NonRetails / Net_Total, real(null))
+Out_R  = max_of(0.0, -Net_Retails);  Out_NR = max_of(0.0, -Net_NonRetails)
+Denom  = Out_R + Out_NR
+ClusterShare_Pct(RETAILS)     = iff(Denom > 0, 100.0 * Out_R  / Denom, real(null))
+ClusterShare_Pct(NON_RETAILS) = iff(Denom > 0, 100.0 * Out_NR / Denom, real(null))
+ClusterShare_Pct(TOTAL_BANK)  = real(null)   // its own share is trivially 100%
 ```
-- **Detects:** whether outflow is broad-based or driven by one cluster.
-- **Breach:** thresholds **pending** (`xx` in the requirement) — the value is computed and
-  carried, tiering is deferred until thresholds are provided.
-- **Guardrail:** `Net_Total = 0` → `null`.
+- **Unit:** percent (0–100); the two cluster rows sum to 100%.
+- **Direction:** higher = worse → breach when `ClusterShare_Pct >= threshold`.
+- **Detects:** whether outflow is broad-based or dominated by one cluster.
+- **Guardrail:** `Denom = 0` (no cluster draining) → `null` → Normal.
+- **Thresholds:** pending — value is computed and carried; the customer sets the % in Activator.
 
-### 8. Sudden Share Jump — `Current share − Prior share`
-Change in a cluster's share versus the **prior 30-minute bucket** — detects an abrupt
-concentration shift even when the absolute share is not yet extreme.
+> The literal `cluster_net ÷ total_net` was rejected because it can exceed 100% or go negative
+> when the clusters offset (one inflow, one outflow); the magnitude form above stays bounded.
+
+### 8. Sudden Share Jump — `Current share − prior-bucket share`
+Change in a cluster's `ClusterShare_Pct` versus the **prior 30-minute bucket** — flags an
+abrupt concentration shift before the absolute share is extreme.
 
 ```kql
-// per (Scope/cluster, Date) ordered by bucket ascending
+// per (Scope, Date) ordered by 30-min bucket ascending
 | serialize
-| extend ShareJump = Share_b - prev(Share_b)
+| extend ShareJump_Pct = iff(Scope == prev(Scope), ClusterShare_Pct - prev(ClusterShare_Pct), real(null))
 ```
+- **Unit:** percentage points (pp).
+- **Direction:** more positive = worse (a cluster's share rising fast) → breach when `ShareJump_Pct >= threshold`.
 - **Detects:** rapid migration of outflow into a cluster between consecutive buckets.
-- **Breach:** thresholds **pending** (`xx`).
+- **Guardrail:** first bucket of the day, or a null current/prior share → `null` → Normal.
+- **Thresholds:** pending — value computed; customer sets the pp threshold in Activator.
 
 ---
 
@@ -239,7 +248,7 @@ is a numeric column. Activator does the filtering and thresholding in its rules.
 | `AccumNetOutflow_MB` | real | indicator 3 — **threshold** |
 | `DebitTxnCount_M` | real | indicator 4 — **threshold** |
 | `Velocity_X` | real | indicator 5 — **threshold** |
-| `AvgDebitAmount_MB` | real | indicator 6 — **threshold** |
+| `AvgDebitAmount_KThb` | real | indicator 6 — **threshold** |
 | `ClusterShare_Pct` | real | indicator 7 — **threshold** (pending) |
 | `ShareJump_Pct` | real | indicator 8 — **threshold** (pending) |
 | `NetOutflow_Bn` | real | 30-min digest helper (billions) |
@@ -284,6 +293,11 @@ Cumulative net outflow from 00:00 until 08:30 = xx.xx bn
 
 ## Open points
 
-- Confirm the **measurement period** for indicators #1/#2/#4/#6 (30-min periodic — assumed — vs window-to-date).
-- Define **#7 Cluster Share** and **#8 Sudden Share Jump** direction/units so their thresholds can be set in Activator (values are computed; tiering deferred).
-- Confirm **Sudden Share Jump** compares against the **prior 30-min bucket** (vs prior window).
+- **#7 Cluster Share** and **#8 Sudden Share Jump** thresholds — the customer supplies the
+  % / pp numbers (entered in Activator). Values are computed and emitted now; only the alert
+  rules wait.
+- **Trigger-amount calibration** — compute L1/L2/L3 absolute amounts from historical
+  percentiles (P80/P90/P95) per 30-min bucket × day type × scope (downstream Phase 1.5).
+- **Engine enrichment (later phases)** — add *deviation*, *persistence*, and *multi-signal*
+  logic on top of the Phase-1 magnitude comparison.
+- **`single-transaction max`** — deferred; needs transaction-level data not in the aggregated feed.
