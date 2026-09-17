@@ -30,3 +30,7 @@ tmp/
 
 # Local session log (do not publish)
 chat_history.md
+
+# Requirement inputs — may carry sensitivity labels, keep local only
+input/*.xlsx
+input/*.csv
