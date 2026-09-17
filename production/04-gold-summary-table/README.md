@@ -12,6 +12,23 @@ minutes**, one evaluated row per **Scope × Indicator** with an assigned **Alert
 
 ---
 
+## Data flow
+
+```
+Silver: DepositMovementClassified        row-level, classified (day type · event flags · window)
+        │   exclude MSYG/SYSG · tag IsRetail · bin to 30-min
+        ▼
+Base MV (Gold): mv_EarlyWarning_Base      periodic sums per  Date × 30-min bucket × IsRetail
+        │   roll up to 3 scopes · cumulative · velocity · cluster share · sudden jump
+        ▼
+Gold function: Gold_EarlyWarning()        one row per  Scope × 30-min bucket  · 8 indicators
+        │   filter (Scope / WindowCode / DayType) · threshold each indicator
+        ▼
+Data Activator                            L1/L2/L3 alerts  +  30-min net-outflow digest
+```
+
+---
+
 ## Conventions
 
 | Item | Value |
