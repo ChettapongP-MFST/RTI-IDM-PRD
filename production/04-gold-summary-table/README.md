@@ -15,16 +15,19 @@ minutes**, one evaluated row per **Scope × Indicator** with an assigned **Alert
 ## Data flow
 
 ```
-Silver: DepositMovementClassified        row-level, classified (day type · event flags · window)
+Silver: DepositMovementClassified         row-level, classified (day type · event flags · window)
         │   exclude MSYG/SYSG · tag IsRetail · bin to 30-min
         ▼
-Base MV (Gold): mv_EarlyWarning_Base      periodic sums per  Date × 30-min bucket × IsRetail
+Base MV (Gold): mv_EarlyWarning_Base       periodic sums per  Date × 30-min bucket × IsRetail
         │   roll up to 3 scopes · cumulative · velocity · cluster share · sudden jump
         ▼
-Gold function: Gold_EarlyWarning()        one row per  Scope × 30-min bucket  · 8 indicators
+Gold function: Gold_EarlyWarning()         one row per  Scope × 30-min bucket  · 8 indicators
+        │   30-min scheduled pipeline · .set-or-append (idempotent)
+        ▼
+Gold table: Gold_EarlyWarning_Snapshot     persisted rows (Scope × 30-min bucket · history)
         │   filter (Scope / WindowCode / DayType) · threshold each indicator
         ▼
-Data Activator                            L1/L2/L3 alerts  +  30-min net-outflow digest
+Data Activator  +  Power BI                L1/L2/L3 alerts · 30-min digest · dashboard
 ```
 
 ---
@@ -274,6 +277,11 @@ is a numeric column. Activator does the filtering and thresholding in its rules.
 **Grain:** 3 scopes × 48 buckets/day. `Object_Id = Scope`, so each scope is tracked
 independently by Activator.
 
+**Persistence (Option 3):** these rows are stored in the Gold table
+`Gold_EarlyWarning_Snapshot` by a 30-min scheduled `.set-or-append` (idempotent), so
+Activator and Power BI read a **stored table** rather than re-running the function each time.
+See Deployment steps 4–5.
+
 **Example Activator rule**
 > Object `TOTAL_BANK` · filter `WindowCode = MORNING_WORKING_HOUR` and
 > `DayType = BUSINESS_DAY` · when `NetOutflow_MB <= -5500` → **Critical**.
@@ -312,7 +320,11 @@ Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`), 
 3. ✅ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql)
    Object checks, grain uniqueness, Silver reconciliation, 3-scope coverage, share-sums-to-100,
    accum reconciliation, and velocity spot-checks.
-4. ⏳ **Activator** — sample rules (filters + thresholds) and the 30-minute digest query *(next)*.
+4. ✅ **`Gold_EarlyWarning_Snapshot`** table — [kql/14-create-Gold_EarlyWarning_Snapshot.kql](kql/14-create-Gold_EarlyWarning_Snapshot.kql)
+   Physical Gold table storing the `Gold_EarlyWarning()` output — persisted history for Activator, Power BI, and calibration.
+5. ✅ **Scheduled append** — [kql/15-append-Gold_EarlyWarning_Snapshot.kql](kql/15-append-Gold_EarlyWarning_Snapshot.kql)
+   Idempotent `.set-or-append` run **every 30 min** by a Fabric Data Pipeline + Notebook (module-07 scheduler pattern).
+6. ⏳ **Activator** — reads `Gold_EarlyWarning_Snapshot` (latest bucket); rules filter + threshold, plus the 30-minute digest *(next)*.
 
 ---
 
