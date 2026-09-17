@@ -1,4 +1,4 @@
-# Production 05 — Event Trigger
+# Production 06 — Event Trigger
 
 > **Status:** 🔧 In Progress
 
@@ -13,12 +13,12 @@ Wire the production pipeline **`pl_ingest_DepositMovement`** to `Microsoft.Stora
 | File filter | `*.CSV` |
 | Workspace | `RTI-IDM-PRD` |
 
-**Prerequisite:** [Production 04 — Data Pipeline](../04-data-pipeline/) complete
-**Next:** [Production 06 — Interval Scheduler](../06-interval-scheduler/)
+**Prerequisite:** [Production 05 — Data Pipeline](../05-data-pipeline/) complete
+**Next:** [Production 07 — Interval Scheduler](../07-interval-scheduler/)
 
 ---
 
-## P5.0 — What changed from the workshop
+## P6.0 — What changed from the workshop
 
 This module mirrors [Workshop 05](../../workshops/05-event-trigger/) but targets **production storage**. The trigger mechanics (Event Grid subscription → Eventstream → Activator rule → pipeline) are identical.
 
@@ -36,7 +36,7 @@ This module mirrors [Workshop 05](../../workshops/05-event-trigger/) but targets
 
 ---
 
-## P5.1 — RBAC prerequisite — EventGrid EventSubscription Contributor
+## P6.1 — RBAC prerequisite — EventGrid EventSubscription Contributor
 
 Creating an event-based trigger on ADLS Gen2 requires the **EventGrid EventSubscription Contributor** role on storage account **`mockadlsidimdprd001`**. This allows Fabric to register an Event Grid subscription for `Microsoft.Storage.BlobCreated` events.
 
@@ -46,11 +46,11 @@ If you followed [Production 00 § P0.6.2](../00-prerequisites/README.md#p062-ass
 2. **Role**: `EventGrid EventSubscription Contributor` → **Next**.
 3. **Members**: select **your user account** (the person creating the trigger) → **Select** → **Review + assign**.
 
-> ⚠️ Without this role, the **Connect** step in P5.4.3 will fail with a permissions error.
+> ⚠️ Without this role, the **Connect** step in P6.4.3 will fail with a permissions error.
 
 ---
 
-## P5.2 — Open the trigger panel
+## P6.2 — Open the trigger panel
 
 1. **Fabric Portal** → **RTI-IDM-PRD** workspace → open pipeline **`pl_ingest_DepositMovement`**.
 2. **Home** ribbon → **Trigger** → **Add trigger**.
@@ -58,7 +58,7 @@ If you followed [Production 00 § P0.6.2](../00-prerequisites/README.md#p062-ass
 
 ---
 
-## P5.3 — Rule details
+## P6.3 — Rule details
 
 In the **Details** section:
 
@@ -68,13 +68,13 @@ In the **Details** section:
 
 ---
 
-## P5.4 — Connect the event source (Monitor)
+## P6.4 — Connect the event source (Monitor)
 
 1. Under **Monitor** → click **"Select source events"**.
 2. The **Real-Time hub** "Select a data source" panel opens.
 3. Select **Azure Blob Storage events**.
 
-### P5.4.1 — Configure connection settings
+### P6.4.1 — Configure connection settings
 
 The **"Configure connection settings"** wizard opens (3-step: Configure → Configure alert → Review + connect).
 
@@ -92,7 +92,7 @@ On the right **Stream details** panel:
 
 Click **Next**.
 
-### P5.4.2 — Configure alert — event type and filters
+### P6.4.2 — Configure alert — event type and filters
 
 **Step 2 — Configure alert:**
 
@@ -111,7 +111,7 @@ Under **Set filters**, add two filter rows:
 
 Click **Next**.
 
-### P5.4.3 — Review + connect
+### P6.4.3 — Review + connect
 
 **Step 3 — Review + connect:**
 
@@ -142,7 +142,7 @@ Click **Save** to return to the "Add rule" panel.
 
 ---
 
-## P5.5 — Verify action and parameters
+## P6.5 — Verify action and parameters
 
 Back on the **"Add rule"** panel, verify:
 
@@ -163,11 +163,11 @@ Back on the **"Add rule"** panel, verify:
 
 > 💡 **About `__subject`:** The `Subject` parameter receives the full blob path, e.g.
 > `/blobServices/default/containers/inflowoutflow/blobs/inbound/statement/INTRADAY_SUMMARY_20260630_0945_1000.CSV`
-> The pipeline's `Set vFileName` activity ([Production 04 § P4.4.0b](../04-data-pipeline/README.md)) extracts just the filename using `replace(coalesce(Subject, pFileName), '...inbound/statement/', '')` → `INTRADAY_SUMMARY_20260630_0945_1000.CSV`.
+> The pipeline's `Set vFileName` activity ([Production 05 § P5.4.0b](../05-data-pipeline/README.md)) extracts just the filename using `replace(coalesce(Subject, pFileName), '...inbound/statement/', '')` → `INTRADAY_SUMMARY_20260630_0945_1000.CSV`.
 
 ---
 
-## P5.6 — Save location and create
+## P6.6 — Save location and create
 
 In the **Save location** section:
 
@@ -189,7 +189,7 @@ The trigger is now live.
 
 ---
 
-## P5.7 — Workspace items created
+## P6.7 — Workspace items created
 
 After completing this module, your workspace has two new items:
 
@@ -200,7 +200,7 @@ After completing this module, your workspace has two new items:
 
 ---
 
-## P5.8 — Validate (via Azure Portal upload)
+## P6.8 — Validate (via Azure Portal upload)
 
 1. **[portal.azure.com](https://portal.azure.com)** → open storage account `mockadlsidimdprd001` → **Data storage** → **Containers** → `inflowoutflow`.
 2. Navigate into the `inbound/statement/` folder (create it via **+ Add Directory** if it does not exist).
@@ -224,7 +224,7 @@ After completing this module, your workspace has two new items:
 - [ ] Pipeline completes with 1 `Success` row in `wh_control_framework.dbo.ProcessedFiles`
 - [ ] Gold materialized view `mv_Summary_Product_Channel_Alert` reflects the ingested file (auto-refresh)
 
-→ Proceed to **[Production 06 — Interval Scheduler](../06-interval-scheduler/)**
+→ Proceed to **[Production 07 — Interval Scheduler](../07-interval-scheduler/)**
 
 ---
 
@@ -234,5 +234,5 @@ After completing this module, your workspace has two new items:
 |---|---|
 | Workshop equivalent | [Workshop 05 — Event-Based Trigger](../../workshops/05-event-trigger/) |
 | RBAC setup | [Production 00 § P0.6.2](../00-prerequisites/README.md#p062-assign-eventgrid-eventsubscription-contributor) |
-| Pipeline build | [Production 04 — Data Pipeline](../04-data-pipeline/) |
-| Filename parsing | [Production 04 § P4.4.0b](../04-data-pipeline/README.md) |
+| Pipeline build | [Production 05 — Data Pipeline](../05-data-pipeline/) |
+| Filename parsing | [Production 05 § P5.4.0b](../05-data-pipeline/README.md) |

@@ -1,4 +1,4 @@
-# Production 08 — Data Activator Alerts (Email & Teams Notification)
+# Production 09 — Data Activator Alerts (Email & Teams Notification)
 
 > **Status:** ✅ Ready
 
@@ -8,7 +8,7 @@ Configure **Data Activator (Reflex)** to monitor the intraday `Net_Amount` from 
 Gold MV (mv_Summary_Product_Channel_Alert)  ──►  Activator rules (3 tiers)  ──►  Email + Teams
 ```
 
-**Prerequisite:** [Production 03 — Summary Table (Gold)](../03-summary-table/) (the MV exists & is healthy) · [Production 07 — Sample Data](../07-sample-data/) (data to alert on)
+**Prerequisite:** [Production 04 — Summary Table (Gold)](../04-gold-summary-table/) (the MV exists & is healthy) · [Production 08 — Sample Data](../08-sample-data/) (data to alert on)
 
 | Item | Value |
 |---|---|
@@ -23,11 +23,11 @@ Gold MV (mv_Summary_Product_Channel_Alert)  ──►  Activator rules (3 tiers)
 
 ---
 
-## P8.0 — What changed from the workshop
+## P9.0 — What changed from the workshop
 
 This module mirrors [Workshop 08](../../workshops/08-activator-alerts/) but targets the **production Gold layer** and adds an **email** channel.
 
-| Aspect | Workshop 08 | **Production 08** |
+| Aspect | Workshop 08 | **Production 09** |
 |---|---|---|
 | Source | Bronze `DepositMovement` | **Gold `mv_Summary_Product_Channel_Alert`** |
 | Granularity | Channel only (cumulative total) | **Product + Channel** (per-object) |
@@ -38,7 +38,7 @@ This module mirrors [Workshop 08](../../workshops/08-activator-alerts/) but targ
 
 ---
 
-## P8.1 — Alert requirement
+## P9.1 — Alert requirement
 
 Monitor `Net_Amount` for **each Product + Channel** for **today's date (ICT)**. When a Product/Channel's net crosses a threshold, fire an alert to email and Teams.
 
@@ -63,7 +63,7 @@ Monitor `Net_Amount` for **each Product + Channel** for **today's date (ICT)**. 
 
 ---
 
-## P8.2 — Create the Activator item
+## P9.2 — Create the Activator item
 
 1. Open the **`RTI-IDM-PRD`** workspace.
 2. **+ New item** → search for **Activator** (a.k.a. **Reflex**) → name it `act-deposit-alerts`.
@@ -73,7 +73,7 @@ Monitor `Net_Amount` for **each Product + Channel** for **today's date (ICT)**. 
 
 ---
 
-## P8.3 — Prepare & validate the KQL event source
+## P9.3 — Prepare & validate the KQL event source
 
 Before wiring the rule, validate the query that powers the alerts. Run it in the **KQL Database query editor** (DB `DepositMovement`) to confirm the shape.
 
@@ -127,13 +127,13 @@ mv_Summary_Product_Channel_Alert
 | `Date_ICT` | ICT date being evaluated — verify it equals today |
 | `Alert_Time` | Current Bangkok time when the query ran |
 
-> 💡 **Why per-object?** Activator tracks **one state per `Object_Id`**, so each Product/Channel fires independently. With the `Changes` condition (P8.5), a given Product/Channel alerts **once per tier transition**, not on every cycle.
+> 💡 **Why per-object?** Activator tracks **one state per `Object_Id`**, so each Product/Channel fires independently. With the `Changes` condition (P9.5), a given Product/Channel alerts **once per tier transition**, not on every cycle.
 >
-> If the query returns **0 rows**, check: (a) there is data for today's ICT date, (b) the `+7h` offset is applied, (c) the MV is healthy (Production 03).
+> If the query returns **0 rows**, check: (a) there is data for today's ICT date, (b) the `+7h` offset is applied, (c) the MV is healthy (Production 04).
 
 ---
 
-## P8.4 — Add the alert from the KQL Queryset
+## P9.4 — Add the alert from the KQL Queryset
 
 > ⚠️ **Do not** try to wire KQL from inside Activator. The Activator (and Eventstream) **"Select a data source" / "Connect data source"** dialogs do **not** list **KQL / Kusto / Eventhouse** — searching returns no results. An Eventstream "bridge" is **not** needed and does **not** work for this. The supported path is to push the alert **out** from the **KQL Queryset** side.
 
@@ -145,16 +145,16 @@ mv_Summary_Product_Channel_Alert
    - **Source / Query**: auto-filled from the queryset
    - **Run query every**: `5 minutes` (or `1 minute` for testing)
    - **Condition → Check**: only **`On each event`** is offered here — leave it as-is.
-   - **Action**: pick any (e.g. **Message to individuals** → yourself) — refined in P8.6
+   - **Action**: pick any (e.g. **Message to individuals** → yourself) — refined in P9.6
 5. **Save location**: `act-deposit-alerts` → **Create**.
 
-> ⚠️ **The seed dialog cannot build the tiers.** It has **no** `+ Add condition`, no **Changes**, and no **Numeric** operators — only `On each event`. That is expected. The **full condition editor** appears only **after** you create the rule and **open the Activator item** (`act-deposit-alerts-01`). All tier logic (P8.5) is built there, not in this dialog.
+> ⚠️ **The seed dialog cannot build the tiers.** It has **no** `+ Add condition`, no **Changes**, and no **Numeric** operators — only `On each event`. That is expected. The **full condition editor** appears only **after** you create the rule and **open the Activator item** (`act-deposit-alerts-01`). All tier logic (P9.5) is built there, not in this dialog.
 
 6. After **Create**, click **Open** (or open the `act-deposit-alerts-01` item from the workspace) to reach the full rule editor.
 
 ---
 
-## P8.5 — Configure the 3 alert rules (one per tier)
+## P9.5 — Configure the 3 alert rules (one per tier)
 
 > 🧭 **You must be inside the `act-deposit-alerts-01` Activator item** (not the seed dialog) for the steps below. The multi-condition editor with **Changes** and **Numeric** operators only exists here.
 
@@ -172,28 +172,28 @@ Create **3 rules** with **exclusive numeric ranges** on `Net_Amount` so each fir
 | `rule_alert_Medium` | `Alert_Flag` **Changes** | `Net_Amount` ≤ `-10000000000` | `Net_Amount` > `-15000000000` | 🟠 Medium |
 | `rule_alert_Low` | `Alert_Flag` **Changes** | `Net_Amount` ≤ `-5000000000` | `Net_Amount` > `-10000000000` | 🟡 Low |
 
-### P8.5.1 — 🔴 High
+### P9.5.1 — 🔴 High
 
 1. Rename the seed rule `rule_Net_Amount_alert` → `rule_alert_High`.
 2. **Condition 1** — Operation: **Common change → Changes**; Column: `Alert_Flag`; Occurrence: `Every time the condition is met`.
 3. **+ Add condition** → **Condition 2** — **Numeric state → Is less than or equal to**; Column: `Net_Amount`; Value: `-15000000000`.
-4. Configure **Actions** (P8.6). **Save and update**.
+4. Configure **Actions** (P9.6). **Save and update**.
 
-### P8.5.2 — 🟠 Medium
+### P9.5.2 — 🟠 Medium
 
 1. Right-click the event → **New rule** → `rule_alert_Medium`.
 2. **Condition 1** — **Changes** on `Alert_Flag`.
 3. **Condition 2** — **Is less than or equal to** `Net_Amount` = `-10000000000`.
 4. **Condition 3** — **Is greater than** `Net_Amount` = `-15000000000`.
-5. Configure **Actions** (P8.6). **Save and update**.
+5. Configure **Actions** (P9.6). **Save and update**.
 
-### P8.5.3 — 🟡 Low
+### P9.5.3 — 🟡 Low
 
 1. Right-click the event → **New rule** → `rule_alert_Low`.
 2. **Condition 1** — **Changes** on `Alert_Flag`.
 3. **Condition 2** — **Is less than or equal to** `Net_Amount` = `-5000000000`.
 4. **Condition 3** — **Is greater than** `Net_Amount` = `-10000000000`.
-5. Configure **Actions** (P8.6). **Save and update**.
+5. Configure **Actions** (P9.6). **Save and update**.
 
 ### Final Explorer panel
 
@@ -209,7 +209,7 @@ mv_Summary_Product_Channel_Alert
 
 ---
 
-## P8.6 — Actions & message templates
+## P9.6 — Actions & message templates
 
 Each rule sends **two** actions: an **Email** and a **Teams** message. Both use **dynamic content** placeholders — in the Activator message editor, click **Insert dynamic content** to insert each `{ColumnName}` chip mapped to the query columns: `Alert_Flag`, `Product`, `Channel`, `Net_Amount`, `Net_Amount_M`, `Credit_Amount`, `Debit_Amount`, `Total_Transaction`, `Latest_Time`, `Date_ICT`, `Alert_Time`.
 
@@ -292,13 +292,13 @@ Action Required:
 
 ---
 
-## P8.7 — Test the alerts
+## P9.7 — Test the alerts
 
 **Option A — use existing intraday data.** Run the **Quick check** at the bottom of [kql/08-alert-source-Product-Channel.kql](kql/08-alert-source-Product-Channel.kql); any row with `Alert_Flag != "Normal"` should trigger the matching rule on the next cycle.
 
 **Option B — lower thresholds temporarily.** If nothing breaches, edit each rule's numeric value (e.g. High `-1000000000`, Medium `-500000000`, Low `-100000000`), wait one cycle, confirm email + Teams arrive, then **reset** to production values.
 
-**Option C — simulate ingestion.** Upload sample CSVs from [Production 07](../07-sample-data/) into `inbound/statement/` for **today's ICT date**; ingestion → MV auto-aggregates → Activator evaluates → alerts fire.
+**Option C — simulate ingestion.** Upload sample CSVs from [Production 08](../08-sample-data/) into `inbound/statement/` for **today's ICT date**; ingestion → MV auto-aggregates → Activator evaluates → alerts fire.
 
 ### Verification checklist
 
@@ -315,7 +315,7 @@ Action Required:
 - [ ] Activator item `act-deposit-alerts` exists and is running (green)
 - [ ] Event source = `mv_Summary_Product_Channel_Alert`, filtered to **today (ICT)**, grouped by **Product + Channel**, with `Object_Id`
 - [ ] **3 rules** — `rule_alert_High` (−15,000,000,000), `rule_alert_Medium` (−10,000,000,000), `rule_alert_Low` (−5,000,000,000) on `Net_Amount` with a `Changes` guard on `Alert_Flag`
-- [ ] Each rule sends **Email + Teams** using the P8.6 templates
+- [ ] Each rule sends **Email + Teams** using the P9.6 templates
 - [ ] At least one **test alert** delivered to both channels
 - [ ] Alerts fire **once per breach**, intraday only
 
@@ -335,4 +335,4 @@ Action Required:
 
 ---
 
-**Prerequisite:** [Production 03 — Summary Table (Gold)](../03-summary-table/) · **Back to:** [Production overview](../)
+**Prerequisite:** [Production 04 — Summary Table (Gold)](../04-gold-summary-table/) · **Back to:** [Production overview](../)

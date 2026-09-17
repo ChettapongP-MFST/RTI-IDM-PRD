@@ -88,7 +88,7 @@ Fill in these values before starting — every later module references them.
 
 ## P0.6 Grant RBAC on the Production Storage Account
 
-> ⚠️ **Both roles below are required.** Missing either role will cause a failure — `Storage Blob Data Contributor` is needed for pipeline ingestion, and `EventGrid EventSubscription Contributor` is needed for the event trigger in [Production 05](../05-event-trigger/).
+> ⚠️ **Both roles below are required.** Missing either role will cause a failure — `Storage Blob Data Contributor` is needed for pipeline ingestion, and `EventGrid EventSubscription Contributor` is needed for the event trigger in [Production 06](../06-event-trigger/).
 
 | Role | Assigned to | Purpose |
 |---|---|---|
@@ -113,7 +113,7 @@ Fill in these values before starting — every later module references them.
 ### P0.6.2 Assign EventGrid EventSubscription Contributor
 
 > 🔑 **Why this role is required for production:**  
-> The production event trigger (Production 05) creates an **Event Grid subscription** on storage account **`mockadlsidimdprd001`** to listen for `Microsoft.Storage.BlobCreated` events scoped to container **`inflowoutflow`** / folder **`inbound/statement/`**. Fabric must call the Azure Event Grid API to register this subscription. Without the **EventGrid EventSubscription Contributor** role assigned to the **user account** performing the setup, the "Connect" step in the Fabric trigger wizard will fail with a permissions error.
+> The production event trigger (Production 06) creates an **Event Grid subscription** on storage account **`mockadlsidimdprd001`** to listen for `Microsoft.Storage.BlobCreated` events scoped to container **`inflowoutflow`** / folder **`inbound/statement/`**. Fabric must call the Azure Event Grid API to register this subscription. Without the **EventGrid EventSubscription Contributor** role assigned to the **user account** performing the setup, the "Connect" step in the Fabric trigger wizard will fail with a permissions error.
 
 1. Still on the **production storage account** → **Access control (IAM)** → **+ Add** → **Add role assignment**.
 2. **Role** tab: search **`EventGrid EventSubscription Contributor`** → select → **Next**.

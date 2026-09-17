@@ -1,15 +1,15 @@
-# Production 04 — Data Pipeline
+# Production 05 — Data Pipeline
 
 > **Status:** 🔧 In Progress
 
 Build the hardened, idempotent Fabric Data Pipeline **`pl_ingest_DepositMovement`** that ingests one **pipe-delimited, no-header** `INTRADAY_SUMMARY_*.CSV` per run into the KQL table `DepositMovement`, with duplicate protection and full audit written to the Warehouse table `wh_control_framework.dbo.ProcessedFiles`.
 
-**Prerequisite:** [Production 03 — Summary Table](../03-summary-table/)
-**Next:** [Production 05 — Event Trigger](../05-event-trigger/)
+**Prerequisite:** [Production 04 — Summary Table](../04-gold-summary-table/)
+**Next:** [Production 06 — Event Trigger](../06-event-trigger/)
 
 ---
 
-## P4.0 — What changed from the workshop
+## P5.0 — What changed from the workshop
 
 This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflects the **production data spec** and **production storage**. Everything else (idempotency design, audit logic, Gold materialized view) is identical.
 
@@ -31,7 +31,7 @@ This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflect
 
 ---
 
-## P4.1 — Pipeline components (what & why)
+## P5.1 — Pipeline components (what & why)
 
 ### Parameters (inputs from the caller / trigger)
 
@@ -39,7 +39,7 @@ This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflect
 |---|---|---|---|
 | `pFileName` | String | *(empty)* | File name for **manual** runs. |
 | `pFolder` | String | `inbound/statement` | Source directory inside the container. |
-| `Subject` | String | *(empty)* | Full blob path delivered by the **event trigger** (Production 05). |
+| `Subject` | String | *(empty)* | Full blob path delivered by the **event trigger** (Production 06). |
 
 ### Variables (computed during the run)
 
@@ -59,11 +59,11 @@ This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflect
 
 > **Goal — idempotent:** the pipeline can fire any number of times for the same file and produce the same result: one copy of the data, one `Success` audit row, zero errors.
 
-> **Gold is automatic:** the materialized view `mv_Summary_Product_Channel_Alert` (Production 03) aggregates `DepositMovement` incrementally — no Gold-refresh activity is needed in this pipeline.
+> **Gold is automatic:** the materialized view `mv_Summary_Product_Channel_Alert` (Production 04) aggregates `DepositMovement` incrementally — no Gold-refresh activity is needed in this pipeline.
 
 ---
 
-## P4.2 — Create the pipeline
+## P5.2 — Create the pipeline
 
 1. Open **Fabric Portal** → **RTI-IDM-PRD** workspace.
 2. **+ New item** → **Data pipeline**.
@@ -71,7 +71,7 @@ This module mirrors [Workshop 04](../../workshops/04-data-pipeline/) but reflect
 
 ---
 
-## P4.3 — Parameters & variables
+## P5.3 — Parameters & variables
 
 Click the **canvas background** → bottom pane.
 
@@ -92,9 +92,9 @@ Click the **canvas background** → bottom pane.
 
 ---
 
-## P4.4 — Build the activities
+## P5.4 — Build the activities
 
-### P4.4.0 — `Set vLoadTs` (Set variable)
+### P5.4.0 — `Set vLoadTs` (Set variable)
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -106,7 +106,7 @@ Click the **canvas background** → bottom pane.
 
 ---
 
-### P4.4.0b — `Set vFileName` (Set variable)
+### P5.4.0b — `Set vFileName` (Set variable)
 
 Connect **On Success** from `Set vLoadTs`.
 
@@ -127,7 +127,7 @@ Connect **On Success** from `Set vLoadTs`.
 
 ---
 
-### P4.4.1 — `Get Metadata`
+### P5.4.1 — `Get Metadata`
 
 Connect **On Success** from `Set vFileName`.
 
@@ -157,7 +157,7 @@ Connect **On Success** from `Set vFileName`.
 
 ---
 
-### P4.4.2 — `Lookup ProcessedFiles`
+### P5.4.2 — `Lookup ProcessedFiles`
 
 Connect **On Success** from `Get Metadata`.
 
@@ -179,7 +179,7 @@ WHERE FileName = '@{variables('vFileName')}'
 
 ---
 
-### P4.4.3 — `If Condition`
+### P5.4.3 — `If Condition`
 
 Connect **On Success** from `Lookup ProcessedFiles`.
 
@@ -193,7 +193,7 @@ Connect **On Success** from `Lookup ProcessedFiles`.
 
 ---
 
-### P4.4.3a — True branch: `Copy CSV to Eventhouse` (Copy data)
+### P5.4.3a — True branch: `Copy CSV to Eventhouse` (Copy data)
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -204,7 +204,7 @@ Connect **On Success** from `Lookup ProcessedFiles`.
 
 | Setting | Value |
 |---|---|
-| Connection | *(ADLS Gen2 from P4.4.1)* |
+| Connection | *(ADLS Gen2 from P5.4.1)* |
 | Container | `inflowoutflow` |
 | Directory | `@pipeline().parameters.pFolder` |
 | File name | `@variables('vFileName')` |
@@ -235,7 +235,7 @@ Connect **On Success** from `Lookup ProcessedFiles`.
 
 ---
 
-### P4.4.3b — True branch: `Append Success` (Script)
+### P5.4.3b — True branch: `Append Success` (Script)
 
 Connect **On Success** from `Copy CSV to Eventhouse`.
 
@@ -262,7 +262,7 @@ VALUES (
 
 ---
 
-### P4.4.3c — True branch: `Append Failed` (Script)
+### P5.4.3c — True branch: `Append Failed` (Script)
 
 Connect **On Failure** (red arrow) from `Copy CSV to Eventhouse`.
 
@@ -291,15 +291,15 @@ VALUES (
 
 ---
 
-### P4.4.3d — Gold is automatic (no activity)
+### P5.4.3d — Gold is automatic (no activity)
 
-The Gold layer is the materialized view **`mv_Summary_Product_Channel_Alert`** (Production 03). KQL refreshes it **incrementally and automatically** as new rows land in `DepositMovement`, so the pipeline needs **no** Gold-recalculation activity. After `Append Success`, the True branch is complete.
+The Gold layer is the materialized view **`mv_Summary_Product_Channel_Alert`** (Production 04). KQL refreshes it **incrementally and automatically** as new rows land in `DepositMovement`, so the pipeline needs **no** Gold-recalculation activity. After `Append Success`, the True branch is complete.
 
 > Query the Gold layer any time via the view directly, or via the wrapper `Summary_Alert_Channel_Gold()` for the canonical column order. The view always returns correct totals (materialized data + uncommitted delta combined), even while the `MaterializedTo` watermark catches up.
 
 ---
 
-### P4.4.3e — False branch: `Append Skipped-Duplicate` (Script)
+### P5.4.3e — False branch: `Append Skipped-Duplicate` (Script)
 
 | Setting | Value |
 |---|---|
@@ -324,7 +324,7 @@ VALUES (
 
 ---
 
-## P4.5 — Save & test manually
+## P5.5 — Save & test manually
 
 1. Upload one production file (e.g. `INTRADAY_SUMMARY_20260615_0945_1000.CSV` from [`resources/prd_datasets/`](../../resources/prd_datasets/)) to `inflowoutflow/inbound/statement/`.
 2. Run the pipeline with:
@@ -358,7 +358,7 @@ mv_Summary_Product_Channel_Alert
 
 ---
 
-## P4.6 — Clean up test data
+## P5.6 — Clean up test data
 
 > Run only after verifying the pipeline. Tables/mappings/views stay intact — only rows are removed.
 
@@ -379,7 +379,7 @@ mv_Summary_Product_Channel_Alert
 - [ ] Failure path tested (missing file = `Failed` audit row)
 - [ ] Gold materialized view `mv_Summary_Product_Channel_Alert` reflects each successful ingestion (auto-refresh — no pipeline step)
 
-→ Proceed to **[Production 05 — Event Trigger](../05-event-trigger/)**
+→ Proceed to **[Production 06 — Event Trigger](../06-event-trigger/)**
 
 ---
 

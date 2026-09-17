@@ -1,10 +1,10 @@
-# Production 07 — Sample Data
+# Production 08 — Sample Data
 
 > **Status:** ✅ Ready
 
-Production-format sample CSV files for end-to-end pipeline testing — pipe-delimited, **no header**, 15-minute intervals, fixed-width amounts, `INTRADAY_SUMMARY_YYYYMMDD_HHMM_HHMM.CSV` naming (uppercase `.CSV`). Drop these into ADLS Gen2 to exercise the **event trigger** ([Production 05](../05-event-trigger/)) and the **interval scheduler** ([Production 06](../06-interval-scheduler/)).
+Production-format sample CSV files for end-to-end pipeline testing — pipe-delimited, **no header**, 15-minute intervals, fixed-width amounts, `INTRADAY_SUMMARY_YYYYMMDD_HHMM_HHMM.CSV` naming (uppercase `.CSV`). Drop these into ADLS Gen2 to exercise the **event trigger** ([Production 06](../06-event-trigger/)) and the **interval scheduler** ([Production 07](../07-interval-scheduler/)).
 
-**Prerequisite:** [Production 06 — Interval Scheduler](../06-interval-scheduler/)
+**Prerequisite:** [Production 07 — Interval Scheduler](../07-interval-scheduler/)
 
 | Setting | Value |
 |---|---|
@@ -19,7 +19,7 @@ Production-format sample CSV files for end-to-end pipeline testing — pipe-deli
 
 ---
 
-## P7.0 — File format
+## P8.0 — File format
 
 Each file holds the rows for **one 15-minute interval**. Pipe-delimited, no header, one row per `(Product, Channel)` that had activity in that window, sorted by `(Product, Channel)`.
 
@@ -45,10 +45,10 @@ Each file holds the rows for **one 15-minute interval**. Pipe-delimited, no head
 
 ---
 
-## P7.1 — Generate the data
+## P8.1 — Generate the data
 
 ```powershell
-python "production/07-sample-data/scripts/generate_sample_data.py"
+python "production/08-sample-data/scripts/generate_sample_data.py"
 ```
 
 The run is **seeded** (`SEED = 20260701`), so output is reproducible. To change the date range or interval window, edit the constants at the top of the script (`START_DATE`, `END_DATE`, `DAY_START_HHMM`, `DAY_END_HHMM`, `ROWS_MIN`, `ROWS_MAX`).
@@ -66,7 +66,7 @@ The generator derives its **product → channel universe** and per-channel amoun
 
 ---
 
-## P7.2 — Upload to ADLS Gen2 (drive a test)
+## P8.2 — Upload to ADLS Gen2 (drive a test)
 
 Upload the files into `inflowoutflow/inbound/statement/` to trigger ingestion. The scheduler matches on **today's** date, so use a date that matches `convertFromUtc(utcNow(), 'SE Asia Standard Time', 'yyyyMMdd')` if you want the interval scheduler to pick them up; the event trigger fires on **any** new blob regardless of date.
 
@@ -101,4 +101,4 @@ Get-ChildItem "$src/INTRADAY_SUMMARY_${day}_*.CSV" | ForEach-Object {
 
 ---
 
-**Prerequisite:** [Production 06 — Interval Scheduler](../06-interval-scheduler/) · **Next:** [Production 08 — Data Activator Alerts](../08-activator-alerts/) · **Back to:** [Production overview](../)
+**Prerequisite:** [Production 07 — Interval Scheduler](../07-interval-scheduler/) · **Next:** [Production 09 — Data Activator Alerts](../09-activator-alerts/) · **Back to:** [Production overview](../)

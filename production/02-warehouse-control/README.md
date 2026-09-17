@@ -5,7 +5,7 @@ Create the `dbo.ProcessedFiles` audit/control table (plus a logging stored proce
 This table is the heart of the pipeline's **idempotency** and **auditability**: before ingesting a CSV the pipeline checks here to avoid duplicate loads, and after each copy it writes one row recording the outcome.
 
 **Prerequisite:** [Production 01 — Eventhouse KQL Tables](../01-eventhouse-kql-tables/)
-**Next:** [Production 03 — Summary Table](../03-summary-table/)
+**Next:** [Production 04 — Summary Table](../04-gold-summary-table/)
 
 ---
 
@@ -109,7 +109,7 @@ GROUP BY Status;
 
 ## P2.5 — How the Pipeline Uses This Table (preview)
 
-The event-driven pipeline (Production 04) follows the canonical idempotent pattern:
+The event-driven pipeline (Production 05) follows the canonical idempotent pattern:
 
 ```
 BlobCreated event
@@ -145,7 +145,7 @@ This gives **file-level idempotency** in the Warehouse, complementing the KQL `i
 
 ## ✅ Exit Criteria
 
-Before proceeding to **[Production 03](../03-summary-table/)**, verify:
+Before proceeding to **[Production 04](../04-gold-summary-table/)**, verify:
 
 - [x] Warehouse `wh_control_framework` exists in the **RTI-IDM-PRD** workspace
 - [x] Table `dbo.ProcessedFiles` exists with **8 columns**

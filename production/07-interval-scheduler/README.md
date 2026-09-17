@@ -1,13 +1,13 @@
-# Production 06 — Interval Scheduler
+# Production 07 — Interval Scheduler
 
 > **Status:** ✅ Complete
 
 Build a new **scheduled orchestrator** pipeline **`pl_ingest_DepositMovement_schedule`** that runs every **30 minutes**, uses a first-step **time-window gate** to continue only during **03:30-22:30 (Bangkok / ICT)**, and invokes **`pl_ingest_DepositMovement_trigger_pipeline`** as a child.
 
-The renamed trigger pipeline **`pl_ingest_DepositMovement_trigger_pipeline`** (formerly `pl_ingest_DepositMovement_schedule`) keeps the existing discovery + dispatch logic: list **today's + yesterday's** `INTRADAY_SUMMARY_*.CSV` files in ADLS Gen2, compare with `wh_control_framework.dbo.ProcessedFiles` to find the **new (not-yet-loaded)** files, and invoke the ingestion pipeline **`pl_ingest_DepositMovement`** (Production 04) **once per new file, in parallel**.
+The renamed trigger pipeline **`pl_ingest_DepositMovement_trigger_pipeline`** (formerly `pl_ingest_DepositMovement_schedule`) keeps the existing discovery + dispatch logic: list **today's + yesterday's** `INTRADAY_SUMMARY_*.CSV` files in ADLS Gen2, compare with `wh_control_framework.dbo.ProcessedFiles` to find the **new (not-yet-loaded)** files, and invoke the ingestion pipeline **`pl_ingest_DepositMovement`** (Production 05) **once per new file, in parallel**.
 
-**Prerequisite:** [Production 04 — Data Pipeline](../04-data-pipeline/)
-**Next:** [Production 07 — Sample Data](../07-sample-data/)
+**Prerequisite:** [Production 05 — Data Pipeline](../05-data-pipeline/)
+**Next:** [Production 08 — Sample Data](../08-sample-data/)
 
 | Setting | Value |
 |---|---|
@@ -26,15 +26,15 @@ The renamed trigger pipeline **`pl_ingest_DepositMovement_trigger_pipeline`** (f
 
 ---
 
-## P6.0 — Why a scheduler (push vs pull)
+## P7.0 — Why a scheduler (push vs pull)
 
-[Production 05](../05-event-trigger/) is **push**: a `BlobCreated` event fires the ingestion pipeline the instant a file lands — near-zero latency, one run per file. This module is **pull**: a clock-driven sweep that catches **anything the event trigger missed** (events dropped, files copied in bulk, trigger paused, backfill/replay).
+[Production 06](../06-event-trigger/) is **push**: a `BlobCreated` event fires the ingestion pipeline the instant a file lands — near-zero latency, one run per file. This module is **pull**: a clock-driven sweep that catches **anything the event trigger missed** (events dropped, files copied in bulk, trigger paused, backfill/replay).
 
 Both paths call the **same** child pipeline `pl_ingest_DepositMovement`, and both are safe to run together because the child is **idempotent** — every file is checked against `dbo.ProcessedFiles` before loading, so a file can never be double-ingested no matter how many times it is offered.
 
 With this update, the wrapper `pl_ingest_DepositMovement_schedule` only enforces the run window and then invokes `pl_ingest_DepositMovement_trigger_pipeline`.
 
-| | Production 05 — Event Trigger | **Production 06 — Interval Scheduler** |
+| | Production 06 — Event Trigger | **Production 07 — Interval Scheduler** |
 |---|---|---|
 | Model | Push (event-driven) | **Pull (time-driven)** |
 | Latency | Seconds | **Up to 15 min** |
@@ -44,7 +44,7 @@ With this update, the wrapper `pl_ingest_DepositMovement_schedule` only enforces
 
 ---
 
-## P6.1 — How it works
+## P7.1 — How it works
 
 Top-level control flow:
 
@@ -74,16 +74,16 @@ The trigger pipeline does **no copying or auditing of its own** — it only deci
 - **`Get Metadata`** lists every child item in `inbound/statement/`.
 - **`Lookup Processed Files`** returns the delimited set of today+yesterday **already-loaded** file names from `dbo.ProcessedFiles`.
 - **`Filter New Files`** keeps only items that are *today's or yesterday's* `.CSV` **and** are **not** in the processed set → the **new-file** list.
-- **`ForEach`** fans out the new-file list and calls the child pipeline **in parallel** (one run per new file). The child handles the copy, the 4 lineage columns, the audit row, and the automatic Gold refresh — exactly as in Production 04.
+- **`ForEach`** fans out the new-file list and calls the child pipeline **in parallel** (one run per new file). The child handles the copy, the 4 lineage columns, the audit row, and the automatic Gold refresh — exactly as in Production 05.
 - **`If In Execution Window (ICT)`** now lives in the new wrapper pipeline `pl_ingest_DepositMovement_schedule` and allows processing only between **03:30 and 22:30** Bangkok time. Outside that window the run exits without work.
 
 > **Reuse, don't duplicate.** All ingestion, idempotency, audit, and Gold logic lives in `pl_ingest_DepositMovement`. This module is a thin discovery + dispatch wrapper.
 
 ---
 
-## P6.2 — Rename and create pipelines
+## P7.2 — Rename and create pipelines
 
-### P6.2.1 — Rename existing scheduler pipeline to trigger pipeline
+### P7.2.1 — Rename existing scheduler pipeline to trigger pipeline
 
 1. Open **Fabric Portal** → **RTI-IDM-PRD** workspace.
 2. Locate existing pipeline **`pl_ingest_DepositMovement_schedule`**.
@@ -91,7 +91,7 @@ The trigger pipeline does **no copying or auditing of its own** — it only deci
 
 > This preserves all existing discovery/filter/ForEach behavior in the renamed trigger pipeline.
 
-### P6.2.2 — Create the new scheduler wrapper pipeline
+### P7.2.2 — Create the new scheduler wrapper pipeline
 
 1. Open **Fabric Portal** → **RTI-IDM-PRD** workspace.
 2. **+ New item** → **Data pipeline**.
@@ -101,9 +101,9 @@ The trigger pipeline does **no copying or auditing of its own** — it only deci
 
 ---
 
-## P6.3 — Build the scheduler wrapper activities
+## P7.3 — Build the scheduler wrapper activities
 
-### P6.3.1 — `If In Execution Window (ICT)` (If Condition)
+### P7.3.1 — `If In Execution Window (ICT)` (If Condition)
 
 Place this as the **first** activity in `pl_ingest_DepositMovement_schedule`.
 
@@ -119,7 +119,7 @@ Place this as the **first** activity in `pl_ingest_DepositMovement_schedule`.
 )
 ```
 
-### P6.3.2 — `Invoke Trigger Pipeline` (Execute Pipeline)
+### P7.3.2 — `Invoke Trigger Pipeline` (Execute Pipeline)
 
 Add this activity in the **True** branch.
 
@@ -136,11 +136,11 @@ Add this activity in the **True** branch.
 
 ---
 
-## P6.4 — Existing trigger pipeline internals (renamed pipeline)
+## P7.4 — Existing trigger pipeline internals (renamed pipeline)
 
 The following internals belong to **`pl_ingest_DepositMovement_trigger_pipeline`**.
 
-## P6.4.1 — Parameters & variables
+## P7.4.1 — Parameters & variables
 
 Click the **canvas background** → bottom pane.
 
@@ -157,7 +157,7 @@ Click the **canvas background** → bottom pane.
 
 Continue configuring activities in `pl_ingest_DepositMovement_trigger_pipeline`:
 
-### P6.4.2 — `Set vToday` (Set variable)
+### P7.4.2 — `Set vToday` (Set variable)
 
 | Tab | Setting | Value |
 |---|---|---|
@@ -169,7 +169,7 @@ Continue configuring activities in `pl_ingest_DepositMovement_trigger_pipeline`:
 
 ---
 
-### P6.4.3 — `Set vYesterday` (Set variable)
+### P7.4.3 — `Set vYesterday` (Set variable)
 
 Connect **On Success** from `Set vToday`.
 
@@ -181,7 +181,7 @@ Connect **On Success** from `Set vToday`.
 
 ---
 
-### P6.4.4 — `Get Metadata — List Files` (Get Metadata)
+### P7.4.4 — `Get Metadata — List Files` (Get Metadata)
 
 Connect **On Success** from `Set vYesterday`.
 
@@ -190,7 +190,7 @@ Connect **On Success** from `Set vYesterday`.
 | General | Name | `Get Metadata — List Files` |
 | General | Retry / Interval | `2` / `30` sec |
 
-**Settings** (reuse the **ADLS Gen2 connection** from [Production 04](../04-data-pipeline/) — Workspace Identity):
+**Settings** (reuse the **ADLS Gen2 connection** from [Production 05](../05-data-pipeline/) — Workspace Identity):
 
 | Setting | Value |
 |---|---|
@@ -204,7 +204,7 @@ Connect **On Success** from `Set vYesterday`.
 
 ---
 
-### P6.4.5 — `Lookup Processed Files` (Lookup)
+### P7.4.5 — `Lookup Processed Files` (Lookup)
 
 Connect **On Success** from `Get Metadata — List Files`.
 
@@ -229,7 +229,7 @@ WHERE Status = 'Success'
 
 ---
 
-### P6.4.6 — `Filter New Files` (Filter)
+### P7.4.6 — `Filter New Files` (Filter)
 
 Connect **On Success** from `Lookup Processed Files`.
 
@@ -259,7 +259,7 @@ Connect **On Success** from `Lookup Processed Files`.
 
 ---
 
-### P6.4.7 — `ForEach New Files` (ForEach) → parallel child runs
+### P7.4.7 — `ForEach New Files` (ForEach) → parallel child runs
 
 Connect **On Success** from `Filter New Files`.
 
@@ -288,11 +288,11 @@ Connect **On Success** from `Filter New Files`.
 | `pFolder` | `inbound/statement` |
 | `Subject` | *(leave unset — uses the child default; the child's `coalesce` falls back to `pFileName`)* |
 
-> This is exactly the **manual-run** contract the child pipeline already supports (Production 04, P4.4.0b). The child resolves `vFileName` from `pFileName`, runs its own `Lookup ProcessedFiles → If Condition`, and writes the `Success` / `Skipped-Duplicate` / `Failed` audit row. **No ingestion logic is duplicated here.**
+> This is exactly the **manual-run** contract the child pipeline already supports (Production 05, P5.4.0b). The child resolves `vFileName` from `pFileName`, runs its own `Lookup ProcessedFiles → If Condition`, and writes the `Success` / `Skipped-Duplicate` / `Failed` audit row. **No ingestion logic is duplicated here.**
 
 ---
 
-## P6.5 — Configure the 30-minute schedule (wrapper pipeline)
+## P7.5 — Configure the 30-minute schedule (wrapper pipeline)
 
 1. On the pipeline toolbar → **Schedule**.
 2. Set:
@@ -310,7 +310,7 @@ Connect **On Success** from `Filter New Files`.
 
 ---
 
-## P6.6 — Save & test
+## P7.6 — Save & test
 
 1. Drop **2 or more** today-dated files into `inflowoutflow/inbound/statement/` (e.g. from [`resources/prd_datasets/`](../../resources/prd_datasets/), renamed to today's date) so parallelism is exercised.
 2. **Run** `pl_ingest_DepositMovement_schedule` manually (don't wait for the timer).
@@ -339,9 +339,9 @@ DepositMovement
 
 ---
 
-## P6.7 — Clean up test data (optional)
+## P7.7 — Clean up test data (optional)
 
-> Only after verifying. Same teardown as [Production 04, P4.6](../04-data-pipeline/) — clear Bronze, clear the Gold materialized view, and delete the control rows so the next test starts clean.
+> Only after verifying. Same teardown as [Production 05, P5.6](../05-data-pipeline/) — clear Bronze, clear the Gold materialized view, and delete the control rows so the next test starts clean.
 
 | Step | Target | Engine | Command |
 |---|---|---|---|
@@ -363,7 +363,7 @@ DepositMovement
 - [ ] Re-running the orchestrator loads **nothing** (idempotent: 0 new files)
 - [ ] 30-minute schedule enabled with 03:30-22:30 ICT gate
 
-→ Proceed to **[Production 07 — Sample Data](../07-sample-data/)**
+→ Proceed to **[Production 08 — Sample Data](../08-sample-data/)**
 
 ---
 

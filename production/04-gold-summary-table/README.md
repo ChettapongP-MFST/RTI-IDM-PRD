@@ -1,4 +1,4 @@
-# Production 03 — Summary Table (Gold Layer)
+# Production 04 — Summary Table (Gold Layer)
 
 Create the **Gold aggregation layer** — a pre-aggregated table that stores per-time-window, channel-level summaries of deposit movements, built from the Bronze `DepositMovement` table.
 
@@ -7,16 +7,16 @@ Bronze (DepositMovement)  ──►  Materialized View  ──►  Gold (mv_Summ
 ```
 
 **Prerequisite:** [Production 01 — Eventhouse KQL Tables](../01-eventhouse-kql-tables/) (the `DepositMovement` table exists)
-**Next:** [Production 04 — Data Pipeline](../04-data-pipeline/)
+**Next:** [Production 05 — Data Pipeline](../05-data-pipeline/)
 
 ---
 
-## P3.1 — Why a Gold table?
+## P4.1 — Why a Gold table?
 
 `DepositMovement` (Bronze) stores **granular, row-level** facts (per product, per channel, per time slot). The Gold table stores **per-dimension aggregated summaries**, pre-aggregated for:
 
 - **Power BI reports** — dashboards query a small summary table instead of scanning millions of raw rows → faster loads.
-- **Activator alerts** (Production 05) — threshold alerting on net amounts / transaction counts per time window per channel.
+- **Activator alerts** (Production 06) — threshold alerting on net amounts / transaction counts per time window per channel.
 
 ### Gold schema (`mv_Summary_Product_Channel_Alert`) — 12 columns
 
@@ -43,7 +43,7 @@ Bronze (DepositMovement)  ──►  Materialized View  ──►  Gold (mv_Summ
 
 ---
 
-## P3.2 — Create the Materialized View
+## P4.2 — Create the Materialized View
 
 `mv_Summary_Product_Channel_Alert` is the **Gold object**. It is defined directly on the Bronze `DepositMovement` table, and KQL **auto-aggregates** it incrementally as new data lands — no pipeline step and no recalculation function required.
 
@@ -89,7 +89,7 @@ Summary_Alert_Channel_Gold()   // = mv_Summary_Product_Channel_Alert projected t
 
 ---
 
-## P3.3 — Verify
+## P4.3 — Verify
 
 Run the verification script:
 
@@ -107,9 +107,9 @@ Each `.show` command has a clean table-format **"b"** companion (using `todynami
 
 ---
 
-## P3.4 — Differences from Workshop
+## P4.4 — Differences from Workshop
 
-| Aspect | Workshop 03 | Production 03 |
+| Aspect | Workshop 03 | Production 04 |
 |---|---|---|
 | **Source schema** | included `Transaction_Type` | **removed** — groups by Date+Product+Channel+Channel_Group (Time via `max(Time)`) |
 | **Amount totals** | `real` | **`decimal`** (matches Bronze `decimal` columns) |
@@ -120,7 +120,7 @@ Each `.show` command has a clean table-format **"b"** companion (using `todynami
 
 ## ✅ Exit Criteria
 
-Before proceeding to **[Production 04](../04-data-pipeline/)**, verify:
+Before proceeding to **[Production 05](../05-data-pipeline/)**, verify:
 
 - [ ] Materialized view `mv_Summary_Product_Channel_Alert` exists and is healthy (`IsHealthy = true`)
 - [ ] MV auto-aggregates Bronze — one row per `Date + Product + Channel + Channel_Group`
