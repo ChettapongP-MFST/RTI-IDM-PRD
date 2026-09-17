@@ -60,9 +60,9 @@ These select **which threshold applies**; they do not change how an indicator is
 | `L2` | Warning | `P90 to < P95` |
 | `L3` | Critical | `P95 up` |
 
-> The `P80/P90/P95` percentiles are the **derivation basis** documented by the business.
-> The threshold tabs already provide **absolute values** per cell, so tiering compares the
-> indicator against those numbers (no live percentile computation).
+> The `P80/P90/P95` percentiles are the **derivation basis** documented by the business;
+> the threshold tabs provide **absolute values** per cell. In this design those numbers are
+> entered as **rule conditions in Activator** (see *Alerting model* below), not computed live.
 
 ---
 
@@ -73,8 +73,8 @@ Each indicator is computed **per current 30-minute bucket** (periodic), **except
 - **#3 Accum Net Outflow** — cumulative from **00:00** to the current bucket.
 - **#5 Transaction Velocity** — current bucket ÷ **expanding** average of all prior buckets that day.
 
-The comparable-time **window + day type** select the applicable threshold row; they do
-**not** change the measurement span.
+The comparable-time **window + day type** are emitted as **filter columns** for Activator;
+they do **not** change the measurement span.
 
 > ⚠️ **Open point to confirm:** whether #1/#2/#4/#6 should instead be *window-to-date*
 > (accumulated within the current comparable-time window). This README assumes **30-minute
@@ -203,30 +203,57 @@ concentration shift even when the absolute share is not yet extreme.
 
 ---
 
-## Alert levels & thresholds
+## Alerting model — Activator is the control surface
 
-Thresholds form a matrix of **Scope × Indicator × Level × Window × Day type = 864 cells**
-(`3 × 8 × 3 × 4 × 3`). Because that is far too many to hand-manage as Activator rules,
-they live in a **reference table** `EarlyWarningThresholds` (CSV-editable, mirroring the
-`OperatingWindowsTimes` / holiday pattern):
+The customer sets **thresholds** and **filters** directly in Data Activator, so the Gold
+layer does **not** assign tiers or store thresholds. Instead it emits a wide,
+Activator-friendly fact table: every **dimension** is a filter column and every **indicator**
+is a numeric column. Activator does the filtering and thresholding in its rules.
 
-| Column | Example |
-| --- | --- |
-| `Scope` | `TOTAL_BANK` |
-| `IndicatorNo` | `2` |
-| `AlertLevel` | `L3` |
-| `WindowCode` | `MORNING_WORKING_HOUR` |
-| `DayType` | `BUSINESS_DAY` |
-| `Comparator` | `LE` (`GE` / `LE`) |
-| `Threshold` | `-5500` (null for pending `xx`) |
+- **Filter in / out** by `Scope`, `WindowCode`, `DayType` (and event flags) → Activator property filters.
+- **Set / adjust a threshold** → a numeric condition on an indicator column, edited in the
+  Activator UI. Because each rule is already filtered to one context, its threshold is a
+  single editable constant.
 
-**Tier assignment:** the indicator value is compared to its L1/L2/L3 thresholds for the
-current `(Scope, Window, DayType)`; the assigned level is the **highest breached** tier
-(`L3 > L2 > L1 > L0`). Editing a threshold = update one row and re-ingest the CSV — no KQL
-or Activator rule change. Activator then simply watches the computed `Alert_Level`.
+> This **replaces** the earlier reference-table (`EarlyWarningThresholds`) approach. The Gold
+> table supports the full `Scope × Window × DayType` granularity; the customer creates only
+> the rules they actually monitor and types the L1/L2/L3 values in Activator.
 
-**Example (Total Bank · Net Outflow · morning · Business Day):** L1 −3500, L2 −4500,
-L3 −5500 MB. A net of −4800 MB → breaches L1 and L2, not L3 → **L2 Warning**.
+### `Gold_EarlyWarning` — one row per Scope × 30-minute bucket
+
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `Object_Id` | string | Activator object identity (= `Scope`) |
+| `Date_ICT` | string | Business date (ICT) |
+| `Bucket_Start` | datetime | 30-min bucket start (ICT) |
+| `Bucket_Label` | string | e.g. `08:00-08:30` |
+| `Alert_Time` | datetime | Evaluation time (ICT) |
+| `Scope` | string | `TOTAL_BANK` / `RETAILS` / `NON_RETAILS` — **filter** |
+| `WindowCode` | string | comparable-time window — **filter** |
+| `WindowName` | string | display |
+| `DayType` | string | `BUSINESS_DAY` / `WEEKEND` / `HOLIDAY` — **filter** |
+| `EventFlag` | string | `NORMAL` / `MONTH_END,PAYROLL` … — **filter** |
+| `IsMonthEnd` / `IsPayroll` / `IsLongWeekend` | bool | **filter** |
+| `GrossOutflow_MB` | real | indicator 1 — **threshold** |
+| `NetOutflow_MB` | real | indicator 2 — **threshold** |
+| `AccumNetOutflow_MB` | real | indicator 3 — **threshold** |
+| `DebitTxnCount_M` | real | indicator 4 — **threshold** |
+| `Velocity_X` | real | indicator 5 — **threshold** |
+| `AvgDebitAmount_MB` | real | indicator 6 — **threshold** |
+| `ClusterShare_Pct` | real | indicator 7 — **threshold** (pending) |
+| `ShareJump_Pct` | real | indicator 8 — **threshold** (pending) |
+| `NetOutflow_Bn` | real | 30-min digest helper (billions) |
+| `AccumNetOutflow_Bn` | real | 30-min digest helper (billions) |
+
+**Grain:** 3 scopes × 48 buckets/day. `Object_Id = Scope`, so each scope is tracked
+independently by Activator.
+
+**Example Activator rule**
+> Object `TOTAL_BANK` · filter `WindowCode = MORNING_WORKING_HOUR` and
+> `DayType = BUSINESS_DAY` · when `NetOutflow_MB <= -5500` → **Critical**.
+>
+> Editing the number, or removing the `DayType` filter, is done entirely in the Activator UI.
+> To tier a metric, add L1/L2/L3 as three conditions (or three rules) with your own values.
 
 ---
 
@@ -246,15 +273,17 @@ Cumulative net outflow from 00:00 until 08:30 = xx.xx bn
 
 ## Planned artifacts (build order)
 
-1. **`EarlyWarningThresholds`** reference table — DDL + CSV mapping + generated 864-row CSV (from the three scope tabs) + verify.
-2. **`mv_EarlyWarning_Base`** — 30-minute base MV on Silver: channel-excluded, `IsRetail`-tagged, with `WindowCode` / `DayClassification` / `EventFlag`, periodic sums (`GrossOutflow`, `Credit`, `Net`, `DebitTxn`).
-3. **`Gold_EarlyWarning()`** — scope roll-up + cumulative / velocity / avg-debit / cluster-share / sudden-jump + threshold join → `Alert_Level` per Scope × Indicator.
-4. **Activator source query + 30-minute digest query**.
+1. **`mv_EarlyWarning_Base`** — 30-minute base MV on Silver: channel-excluded (`MSYG`/`SYSG`),
+   `IsRetail`-tagged, periodic sums (`GrossOutflow`, `Credit`, `Net`, `DebitTxn`) with
+   `WindowCode` / `DayClassification` / `EventFlag`.
+2. **`Gold_EarlyWarning`** — function/MV rolling the base up to the 3 scopes and computing
+   all 8 indicators (cumulative, velocity, cluster share, sudden jump) → the wide table above.
+3. **Activator** — sample rules (filters + thresholds) and the 30-minute digest query.
 
 ---
 
 ## Open points
 
 - Confirm the **measurement period** for indicators #1/#2/#4/#6 (30-min periodic — assumed — vs window-to-date).
-- Provide **thresholds for #7 Cluster Share and #8 Sudden Share Jump** (currently `xx`).
+- Define **#7 Cluster Share** and **#8 Sudden Share Jump** direction/units so their thresholds can be set in Activator (values are computed; tiering deferred).
 - Confirm **Sudden Share Jump** compares against the **prior 30-min bucket** (vs prior window).
