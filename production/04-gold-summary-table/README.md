@@ -304,6 +304,8 @@ Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`), 
 1. ✅ **`mv_EarlyWarning_Base`** — [kql/10-create-mv_EarlyWarning_Base.kql](kql/10-create-mv_EarlyWarning_Base.kql)
    30-minute base MV on Silver: channel-excluded (`MSYG`/`SYSG`), `IsRetail`-tagged, periodic
    sums (`GrossOutflow`, `Credit`, `Net`, `DebitTxn`) by date / bucket / day-type / event-flags.
+   Created `WITH (backfill=true)` → **backfills all existing Silver rows automatically** (no
+   manual append). Confirm / re-backfill: [kql/13-backfill-verify-mv_EarlyWarning_Base.kql](kql/13-backfill-verify-mv_EarlyWarning_Base.kql).
 2. ✅ **`Gold_EarlyWarning(TargetDate, VelocityN=4)`** — [kql/11-create-fn_Gold_EarlyWarning.kql](kql/11-create-fn_Gold_EarlyWarning.kql)
    Rolls the base up to the 3 scopes and computes all 8 indicators (cumulative, velocity,
    cluster share, sudden jump) → the wide table above.

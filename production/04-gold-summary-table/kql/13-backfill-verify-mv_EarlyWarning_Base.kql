@@ -1,0 +1,49 @@
+// ============================================================================
+// Production 04 - Gold EWI base view: initial backfill & verification.
+// ----------------------------------------------------------------------------
+// mv_EarlyWarning_Base is created WITH (backfill=true) in
+// 10-create-mv_EarlyWarning_Base.kql, so it AUTOMATICALLY backfills every
+// existing row of Silver DepositMovementClassified at creation time, and then
+// continuously materializes new Silver extents. There is NO separate
+// .set-or-append backfill step (unlike the Silver table) - a materialized view
+// cannot be appended to manually; its "first backfill" is the create statement.
+//
+// Prerequisite: Silver must be populated first (Bronze -> Silver update policy,
+// or the Silver backfill in
+// 03-silver-deposit-movement-classified/kql/04-backfill-existing-bronze.kql).
+//
+// Run these checks in the DepositMovement KQL database after creating the view.
+// ============================================================================
+
+// 1. Backfill / health status. Expect IsHealthy = true; 'Lag' shrinks to ~0 once
+//    the initial backfill and any catch-up have finished.
+.show materialized-view mv_EarlyWarning_Base
+
+// 2. Coverage: which dates and how many 30-min buckets have been materialized.
+mv_EarlyWarning_Base
+| summarize Buckets = dcount(BucketStart), Rows = count() by LocalDate
+| order by LocalDate asc
+
+// 3. Reconcile the base view against Silver (channel-excluded) across ALL dates.
+//    Expect no rows once backfill/catch-up completes. Transient differences may
+//    appear while the newest Silver extent is still being materialized.
+let _silver = DepositMovementClassified
+    | where isnotnull(LocalDateTime) and Channel !in ("MSYG", "SYSG")
+    | summarize SilverNet = sum(Net_Amount), SilverTxn = sum(Debit_Transaction) by LocalDate;
+let _base = mv_EarlyWarning_Base
+    | summarize BaseNet = sum(Net), BaseTxn = sum(DebitTxn) by LocalDate;
+_silver
+| join kind=fullouter _base on LocalDate
+| extend LocalDate = coalesce(LocalDate, LocalDate1)
+| extend
+    NetDiff = coalesce(BaseNet, decimal(0)) - coalesce(SilverNet, decimal(0)),
+    TxnDiff = coalesce(BaseTxn, 0) - coalesce(SilverTxn, 0)
+| where NetDiff != decimal(0) or TxnDiff != 0
+| project LocalDate, SilverNet, BaseNet, NetDiff, SilverTxn, BaseTxn, TxnDiff
+
+// 4. FORCE a full re-backfill (only if the view definition changed, or to rebuild).
+//    Dropping removes the materialized data; the create carries backfill=true, so
+//    re-running 10-create-mv_EarlyWarning_Base.kql rebuilds it from Silver.
+//    WARNING: destructive - run only in a maintenance window.
+// .drop materialized-view mv_EarlyWarning_Base
+//    then re-run: 10-create-mv_EarlyWarning_Base.kql
