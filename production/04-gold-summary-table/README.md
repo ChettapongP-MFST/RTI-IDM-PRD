@@ -15,20 +15,39 @@ minutes**, one evaluated row per **Scope × Indicator** with an assigned **Alert
 ## Data flow
 
 ```
-Silver: DepositMovementClassified         row-level, classified (day type · event flags · window)
+Silver: DepositMovementClassified        row-level, classified (day type · event flags · window)
         │   exclude MSYG/SYSG · tag IsRetail · bin to 30-min
         ▼
-Base MV (Gold): mv_EarlyWarning_Base       periodic sums per  Date × 30-min bucket × IsRetail
+Base MV (Gold): mv_EarlyWarning_Base      periodic sums per  Date × 30-min bucket × IsRetail
         │   roll up to 3 scopes · cumulative · velocity · cluster share · sudden jump
         ▼
-Gold function: Gold_EarlyWarning()         one row per  Scope × 30-min bucket  · 8 indicators
-        │   30-min scheduled pipeline · .set-or-append (idempotent)
-        ▼
-Gold table: Gold_EarlyWarning_Snapshot     persisted rows (Scope × 30-min bucket · history)
-        │   filter (Scope / WindowCode / DayType) · threshold each indicator
-        ▼
-Data Activator  +  Power BI                L1/L2/L3 alerts · 30-min digest · dashboard
+Gold function: Gold_EarlyWarning()        one row per  Scope × 30-min bucket · 8 indicators
+        │
+        ├─ Option 1 ────────────────────────►  Data Activator runs the function
+        │
+        └─ Option 3 ─► [30-min append] ─► Gold_EarlyWarning_Snapshot ─► Activator + Power BI
 ```
+
+The base MV and function are **shared**; the two options differ only in how the enriched rows
+are consumed — see [Architecture options](#architecture-options).
+
+---
+
+## Architecture options
+
+| | **Option 1 — Function** | **Option 3 — Snapshot table** |
+| --- | --- | --- |
+| Objects | base MV + function | base MV + function + snapshot table + scheduler |
+| Activator source | runs `Gold_EarlyWarning()` on a schedule | reads `Gold_EarlyWarning_Snapshot` table |
+| History persisted | ❌ recomputed each run | ✅ stored (dashboards, backtesting, calibration) |
+| Extra moving parts | none | 30-min Fabric pipeline + idempotent append |
+| Best for | alerting only, simplest | alerting **+** Power BI dashboard + history |
+
+- **Option 1 — [option-1-function.md](option-1-function.md)**
+- **Option 3 — [option-3-snapshot-table.md](option-3-snapshot-table.md)**
+
+Both use the same indicators, dimensions, and wide schema documented below. The Activator wiring
+for each option is in [Production 09](../09-activator-alerts/).
 
 ---
 
@@ -277,10 +296,10 @@ is a numeric column. Activator does the filtering and thresholding in its rules.
 **Grain:** 3 scopes × 48 buckets/day. `Object_Id = Scope`, so each scope is tracked
 independently by Activator.
 
-**Persistence (Option 3):** these rows are stored in the Gold table
-`Gold_EarlyWarning_Snapshot` by a 30-min scheduled `.set-or-append` (idempotent), so
-Activator and Power BI read a **stored table** rather than re-running the function each time.
-See Deployment steps 4–5.
+**Persistence** — this is where the two [architecture options](#architecture-options) diverge:
+**Option 1** lets Activator run `Gold_EarlyWarning()` directly; **Option 3** stores these rows in
+`Gold_EarlyWarning_Snapshot` via a 30-min idempotent `.set-or-append` so Activator and Power BI
+read a table. See [option-1-function.md](option-1-function.md) / [option-3-snapshot-table.md](option-3-snapshot-table.md).
 
 **Example Activator rule**
 > Object `TOTAL_BANK` · filter `WindowCode = MORNING_WORKING_HOUR` and
@@ -307,24 +326,27 @@ Cumulative net outflow from 00:00 until 08:30 = xx.xx bn
 
 ## Deployment (KQL scripts)
 
-Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`), in order:
+Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`).
+
+**Core — both options:**
 
 1. ✅ **`mv_EarlyWarning_Base`** — [kql/10-create-mv_EarlyWarning_Base.kql](kql/10-create-mv_EarlyWarning_Base.kql)
    30-minute base MV on Silver: channel-excluded (`MSYG`/`SYSG`), `IsRetail`-tagged, periodic
-   sums (`GrossOutflow`, `Credit`, `Net`, `DebitTxn`) by date / bucket / day-type / event-flags.
-   Created `WITH (backfill=true)` → **backfills all existing Silver rows automatically** (no
-   manual append). Confirm / re-backfill: [kql/13-backfill-verify-mv_EarlyWarning_Base.kql](kql/13-backfill-verify-mv_EarlyWarning_Base.kql).
+   sums by date / bucket / day-type / event-flags. Created `WITH (backfill=true)` →
+   **auto-backfills** from Silver. Confirm / re-backfill: [kql/13](kql/13-backfill-verify-mv_EarlyWarning_Base.kql).
 2. ✅ **`Gold_EarlyWarning(TargetDate, VelocityN=4)`** — [kql/11-create-fn_Gold_EarlyWarning.kql](kql/11-create-fn_Gold_EarlyWarning.kql)
-   Rolls the base up to the 3 scopes and computes all 8 indicators (cumulative, velocity,
-   cluster share, sudden jump) → the wide table above.
-3. ✅ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql)
-   Object checks, grain uniqueness, Silver reconciliation, 3-scope coverage, share-sums-to-100,
-   accum reconciliation, and velocity spot-checks.
-4. ✅ **`Gold_EarlyWarning_Snapshot`** table — [kql/14-create-Gold_EarlyWarning_Snapshot.kql](kql/14-create-Gold_EarlyWarning_Snapshot.kql)
-   Physical Gold table storing the `Gold_EarlyWarning()` output — persisted history for Activator, Power BI, and calibration.
-5. ✅ **Scheduled append** — [kql/15-append-Gold_EarlyWarning_Snapshot.kql](kql/15-append-Gold_EarlyWarning_Snapshot.kql)
-   Idempotent `.set-or-append` run **every 30 min** by a Fabric Data Pipeline + Notebook (module-07 scheduler pattern).
-6. ⏳ **Activator** — reads `Gold_EarlyWarning_Snapshot` (latest bucket); rules filter + threshold, plus the 30-minute digest *(next)*.
+   Rolls the base up to the 3 scopes and computes all 8 indicators → the wide table above.
+3. ✅ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql).
+
+**Option 1 — function only** ([option-1-function.md](option-1-function.md)): stop after step 3;
+wire Activator to `Gold_EarlyWarning()`.
+
+**Option 3 — snapshot table** ([option-3-snapshot-table.md](option-3-snapshot-table.md)): also run —
+
+4. ✅ **`Gold_EarlyWarning_Snapshot`** table — [kql/14-create-Gold_EarlyWarning_Snapshot.kql](kql/14-create-Gold_EarlyWarning_Snapshot.kql).
+5. ✅ **Idempotent 30-min append** — [kql/15-append-Gold_EarlyWarning_Snapshot.kql](kql/15-append-Gold_EarlyWarning_Snapshot.kql), scheduled by a Fabric Data Pipeline + Notebook (module-07 pattern).
+
+**Activator (either option):** [Production 09 — Activator Alerts](../09-activator-alerts/) *(⏳ wiring next)*.
 
 ---
 
