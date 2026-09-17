@@ -297,14 +297,20 @@ Cumulative net outflow from 00:00 until 08:30 = xx.xx bn
 
 ---
 
-## Planned artifacts (build order)
+## Deployment (KQL scripts)
 
-1. **`mv_EarlyWarning_Base`** — 30-minute base MV on Silver: channel-excluded (`MSYG`/`SYSG`),
-   `IsRetail`-tagged, periodic sums (`GrossOutflow`, `Credit`, `Net`, `DebitTxn`) with
-   `WindowCode` / `DayClassification` / `EventFlag`.
-2. **`Gold_EarlyWarning`** — function/MV rolling the base up to the 3 scopes and computing
-   all 8 indicators (cumulative, velocity, cluster share, sudden jump) → the wide table above.
-3. **Activator** — sample rules (filters + thresholds) and the 30-minute digest query.
+Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`), in order:
+
+1. ✅ **`mv_EarlyWarning_Base`** — [kql/10-create-mv_EarlyWarning_Base.kql](kql/10-create-mv_EarlyWarning_Base.kql)
+   30-minute base MV on Silver: channel-excluded (`MSYG`/`SYSG`), `IsRetail`-tagged, periodic
+   sums (`GrossOutflow`, `Credit`, `Net`, `DebitTxn`) by date / bucket / day-type / event-flags.
+2. ✅ **`Gold_EarlyWarning(TargetDate, VelocityN=4)`** — [kql/11-create-fn_Gold_EarlyWarning.kql](kql/11-create-fn_Gold_EarlyWarning.kql)
+   Rolls the base up to the 3 scopes and computes all 8 indicators (cumulative, velocity,
+   cluster share, sudden jump) → the wide table above.
+3. ✅ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql)
+   Object checks, grain uniqueness, Silver reconciliation, 3-scope coverage, share-sums-to-100,
+   accum reconciliation, and velocity spot-checks.
+4. ⏳ **Activator** — sample rules (filters + thresholds) and the 30-minute digest query *(next)*.
 
 ---
 
