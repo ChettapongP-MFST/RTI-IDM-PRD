@@ -24,6 +24,36 @@ Gold **Option 1** deployed — base MV + function:
    - **Tier** with L1/L2/L3 (three conditions, or three rules with a `Changes` guard on the tier).
 5. Add actions (Email / Teams) per tier.
 
+## Examples
+
+### Example 1 — Net Outflow, latest bucket per scope
+
+Full script: [kql/10-ewi-example1-NetOutflow-TotalBank.kql](kql/10-ewi-example1-NetOutflow-TotalBank.kql).
+
+**Source query** — the newest 30-min bucket per scope, exposing `NetOutflow_Bn` (billions):
+
+```kql
+Gold_EarlyWarning()
+//| where Scope == "TOTAL_BANK"                 // uncomment to scope to Total Bank only
+| summarize arg_max(Bucket_Start, *) by Scope   // latest 30-min bucket per scope
+| project Scope, Date_ICT, Bucket_Label, WindowCode, DayType, NetOutflow_Bn
+| order by Scope asc
+```
+
+**Activator rule** — threshold `NetOutflow_Bn` directly (single editable constant):
+- **Object**: `Scope` (`TOTAL_BANK` / `RETAILS` / `NON_RETAILS`).
+- **Condition**: `NetOutflow_Bn` **≤** `<value>` (e.g. `-5.5` for −5.5 bn; more negative = worse).
+- **Tier (optional)**: add L1/L2/L3 as three rules with different values.
+- **Actions**: Email / Teams with `NetOutflow_Bn` / `WindowCode` / `DayType` as dynamic content.
+
+> **Window × day-type thresholds:** a single numeric condition can't vary the value by
+> `WindowCode` / `DayType`. When those matter (e.g. −3500 morning vs −3000 before-hours), use
+> the **optional tiered block** in the same script — a small threshold `datatable` resolves the
+> value per row and emits an `Alert_Flag` (L0–L3) that one rule watches (`Changes` +
+> `Alert_Flag != "L0_NORMAL"`). Edit a cell to retune; no rule change.
+
+### Example 2 — *(pending customer spec)*
+
 ## 30-minute digest
 
 Add a scheduled rule that formats `NetOutflow_Bn` (periodic) and `AccumNetOutflow_Bn`
