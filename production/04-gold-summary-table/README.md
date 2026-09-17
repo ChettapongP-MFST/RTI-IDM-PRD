@@ -1,138 +1,260 @@
-# Production 04 — Summary Table (Gold Layer)
+# Production 04 — Gold Layer: Early Warning Indicators (Deposit Outflow Alerts)
 
-Create the **Gold aggregation layer** — a pre-aggregated table that stores per-time-window, channel-level summaries of deposit movements, built from the Bronze `DepositMovement` table.
+Define the **Gold aggregation and the 8 Early Warning Indicators (EWIs)** that feed the
+Data Activator alert model for **intraday deposit-outflow monitoring**. This layer is built
+on the **Silver** table `DepositMovementClassified` (which already carries day type,
+event flags, and the operating-window / comparable-time tag) and produces, every **30
+minutes**, one evaluated row per **Scope × Indicator** with an assigned **Alert Level**.
 
-```
-Bronze (DepositMovement)  ──►  Materialized View  ──►  Gold (mv_Summary_Product_Channel_Alert)
-```
-
-**Prerequisite:** [Production 01 — Eventhouse KQL Tables](../01-eventhouse-kql-tables/) (the `DepositMovement` table exists)
-**Next:** [Production 05 — Data Pipeline](../05-data-pipeline/)
-
----
-
-## P4.1 — Why a Gold table?
-
-`DepositMovement` (Bronze) stores **granular, row-level** facts (per product, per channel, per time slot). The Gold table stores **per-dimension aggregated summaries**, pre-aggregated for:
-
-- **Power BI reports** — dashboards query a small summary table instead of scanning millions of raw rows → faster loads.
-- **Activator alerts** (Production 06) — threshold alerting on net amounts / transaction counts per time window per channel.
-
-### Gold schema (`mv_Summary_Product_Channel_Alert`) — 12 columns
-
-| Column | Type | Purpose |
-|---|---|---|
-| `Date` | `datetime` | Business date (e.g. 2026-06-15) — group key |
-| `Time` | `string` | `max(Time)` |
-| `Product` | `string` | Product dimension — group key |
-| `Channel` | `string` | Channel dimension — group key |
-| `Channel_Group` | `string` | Channel group dimension — group key |
-| `Credit_Amount` | `decimal` | `sum(Credit_Amount)` |
-| `Debit_Amount` | `decimal` | `sum(Debit_Amount)` |
-| `Net_Amount` | `decimal` | `sum(Net_Amount)` |
-| `Credit_Transaction` | `long` | `sum(Credit_Transaction)` |
-| `Debit_Transaction` | `long` | `sum(Debit_Transaction)` |
-| `Total_Transaction` | `long` | `sum(Total_Transaction)` |
-| `UpdatedAtUtc` | `datetime` | When the summary was last recalculated |
-
-> **Production difference:** the source has **no `Transaction_Type` column**, and amounts are KQL **`decimal`** (not `real`). Column names mirror the Bronze source; rows are grouped by `Date` + `Product` + `Channel` + `Channel_Group`, with `Time` aggregated via `max(Time)`.
->
-> **Column order:** a KQL materialized-view schema is always **group keys first, then aggregates**, and a trailing `| project` is not permitted inside an MV definition. The MV's physical order is therefore `Date, Product, Channel, Channel_Group, Time, Credit_Amount, …, UpdatedAtUtc`. The canonical order above (`Date, Time, Product, Channel, Channel_Group, …, UpdatedAtUtc`) is exposed at query time via the wrapper function.
->
-> **Wrapper function:** `Summary_Alert_Channel_Gold()` (see `kql/07-create-Summary_Alert_Channel_Gold-wrapper.kql`) projects the MV to the canonical column order. Use it instead of querying `mv_Summary_Product_Channel_Alert` directly wherever the exact order matters (Power BI, exports).
+> The previous per-Product/Channel summary table (`mv_Summary_Product_Channel_Alert`) is
+> **not replaced**. Its documentation is preserved in
+> [README_old.md](README_old.md); this EWI model is a **new, standalone** Gold addition.
 
 ---
 
-## P4.2 — Create the Materialized View
+## Conventions
 
-`mv_Summary_Product_Channel_Alert` is the **Gold object**. It is defined directly on the Bronze `DepositMovement` table, and KQL **auto-aggregates** it incrementally as new data lands — no pipeline step and no recalculation function required.
+| Item | Value |
+| --- | --- |
+| Source | Silver `DepositMovementClassified` (Bronze → Silver already classified) |
+| Evaluation cadence | **every 30 minutes** (48 buckets/day; a bucket = `[HH:00, HH:30)` or `[HH:30, HH+1:00)`) |
+| Excluded channels | `Channel !in ('MSYG', 'SYSG')` — removed from **all** calculations |
+| Sign convention | `Net = Sum(Credit_Amount) − Sum(Debit_Amount)`; **negative ⇒ net outflow** |
+| Amount unit | raw data is **Baht**; indicators in **MB** divide by `1e6` |
+| Count unit | `Debit_Transaction` is a count; "Million" indicators divide by `1e6` |
+| Time zone | Asia/Bangkok (ICT, UTC+7); `now()` is UTC, add `+7h` before truncating |
 
-Run:
+---
 
-**[kql/05-create-mv_Summary_Product_Channel_Alert.kql](kql/05-create-mv_Summary_Product_Channel_Alert.kql)**
+## Supporting dimensions
+
+These select **which threshold applies**; they do not change how an indicator is measured.
+
+**3 Scopes** (channel membership is configurable):
+
+| Scope | Definition |
+| --- | --- |
+| `TOTAL_BANK` | all channels (excluding `MSYG`, `SYSG`) |
+| `RETAILS` | `Channel in ('ENET', 'ATM', 'CDM')` |
+| `NON_RETAILS` | all other channels (excluding `MSYG`, `SYSG`) |
+
+**4 Comparable-time windows** (from `OperatingWindowsTimes`, tagged on every Silver row as `OperatingWindowCode`):
+
+| Code | Window |
+| --- | --- |
+| `BEFORE_WORKING_HOUR` | 00:00 – 08:30 |
+| `MORNING_WORKING_HOUR` | 08:30 – 12:00 |
+| `AFTERNOON_WORKING_HOUR` | 12:00 – 17:30 |
+| `AFTER_WORKING_HOUR` | 17:30 – 24:00 |
+
+**3 Day types** (from Silver `DayClassification`): `BUSINESS_DAY`, `WEEKEND`, `HOLIDAY` (= "Public Holiday").
+
+**3 Event flags** (from Silver): `IsMonthEnd`, `IsPayroll`, `IsLongWeekend` (`EventFlag`). Carried for context and future threshold overrides.
+
+**Alert levels:**
+
+| Level | Name | Derivation basis |
+| --- | --- | --- |
+| `L0` | Normal | value below the L1 threshold (`< P80`) |
+| `L1` | Watch | `P80 to < P90` |
+| `L2` | Warning | `P90 to < P95` |
+| `L3` | Critical | `P95 up` |
+
+> The `P80/P90/P95` percentiles are the **derivation basis** documented by the business.
+> The threshold tabs already provide **absolute values** per cell, so tiering compares the
+> indicator against those numbers (no live percentile computation).
+
+---
+
+## Measurement period (working assumption)
+
+Each indicator is computed **per current 30-minute bucket** (periodic), **except**:
+
+- **#3 Accum Net Outflow** — cumulative from **00:00** to the current bucket.
+- **#5 Transaction Velocity** — current bucket ÷ **expanding** average of all prior buckets that day.
+
+The comparable-time **window + day type** select the applicable threshold row; they do
+**not** change the measurement span.
+
+> ⚠️ **Open point to confirm:** whether #1/#2/#4/#6 should instead be *window-to-date*
+> (accumulated within the current comparable-time window). This README assumes **30-minute
+> periodic**; change here if window-to-date is intended.
+
+---
+
+## The 8 Early Warning Indicators
+
+For a given **Scope**, **Date `d`**, and current 30-minute **bucket `b`**, the base
+per-bucket aggregates (over in-scope, non-excluded rows) are:
 
 ```kql
-.create materialized-view with (backfill=true) mv_Summary_Product_Channel_Alert on table DepositMovement
-{
-    DepositMovement
-    | summarize
-        Time               = max(Time),
-        Credit_Amount      = sum(Credit_Amount),
-        Debit_Amount       = sum(Debit_Amount),
-        Net_Amount         = sum(Net_Amount),
-        Credit_Transaction = sum(Credit_Transaction),
-        Debit_Transaction  = sum(Debit_Transaction),
-        Total_Transaction  = sum(Total_Transaction),
-        UpdatedAtUtc       = max(load_ts)
-        by Date, Product, Channel, Channel_Group
-}
+GrossOutflow_b = sum(Debit_Amount)                       // Baht
+Credit_b       = sum(Credit_Amount)                       // Baht
+Net_b          = sum(Net_Amount)                          // = Credit − Debit (Baht, negative ⇒ outflow)
+DebitTxn_b     = sum(Debit_Transaction)                   // count
 ```
 
-| Part | What it does |
-|---|---|
-| `with (backfill=true)` | Aggregates all existing data immediately. Remove if the table is empty at creation. |
-| `on table DepositMovement` | KQL watches this source for new extents. |
-| `max(load_ts)` | Freshness proxy — `now()` is **not** mergeable in a materialized view, but `max()` of a column is. |
-| `summarize ... by Date, Product, Channel, Channel_Group` | Aggregation run automatically by KQL as data lands. |
+| # | Indicator | Group | Unit | Direction (breach when) |
+| --- | --- | --- | --- | --- |
+| 1 | Gross Outflow | Deposit outflow | MB | value **≥** threshold |
+| 2 | Net Outflow | Deposit outflow | MB | value **≤** threshold (negative) |
+| 3 | Accum Net Outflow | Deposit outflow | MB | value **≤** threshold (negative) |
+| 4 | Debit Transaction Count | Traffic | Million | value **≥** threshold |
+| 5 | Transaction Velocity | Traffic | X (ratio) | value **≥** threshold |
+| 6 | Average Debit Amount | Large Value Movement | MB | value **≥** threshold |
+| 7 | Cluster Share | Concentration | ratio/% | *thresholds pending (`xx`)* |
+| 8 | Sudden Share Jump | Concentration | ratio/% | *thresholds pending (`xx`)* |
 
-The view keeps **exactly one row** per Date+Product+Channel+Channel_Group (auto-merged), so no dedup is needed.
+### 1. Gross Outflow — `Sum(Debit_Amount)`
+Total money **leaving** in the bucket (debit volume). A high gross outflow is the first
+sign of unusual withdrawal pressure.
 
-### Wrapper for canonical column order
+```kql
+GrossOutflow_MB = GrossOutflow_b / 1000000.0
+```
+- **Detects:** raw magnitude of outflow, before netting against inflow.
+- **Breach:** `GrossOutflow_MB >= threshold`.
 
-The MV's physical schema is **keys-first**. To expose the canonical order (`Date, Time, Product, Channel, Channel_Group, …, UpdatedAtUtc`) for Power BI and exports, create the wrapper function:
+### 2. Net Outflow — `Sum(Credit_Amount) − Sum(Debit_Amount)`
+Net movement for the bucket. Despite the name "outflow", the formula is a **net flow**:
+positive = net inflow, **negative = net outflow**.
 
-**[kql/07-create-Summary_Alert_Channel_Gold-wrapper.kql](kql/07-create-Summary_Alert_Channel_Gold-wrapper.kql)**
+```kql
+NetOutflow_MB = Net_b / 1000000.0
+```
+- **Detects:** genuine drain after inflows offset withdrawals.
+- **Breach:** `NetOutflow_MB <= threshold` (thresholds are negative, e.g. −5500).
 
-```kusto
-Summary_Alert_Channel_Gold()   // = mv_Summary_Product_Channel_Alert projected to canonical order
+### 3. Accum Net Outflow — `Sum(Net Flow from 00:00 to current)`
+Running total of net flow since midnight (ICT). Tracks how deep the cumulative drain is
+through the day.
+
+```kql
+// per (Scope, Date) ordered by bucket ascending
+AccumNetOutflow_MB = (row_cumsum(Net_b)) / 1000000.0
+```
+- **Detects:** sustained day-long outflow even when individual buckets look mild.
+- **Breach:** `AccumNetOutflow_MB <= threshold` (negative).
+
+### 4. Debit Transaction Count — `Sum(Debit_Transaction)`
+Number of debit transactions in the bucket (traffic, not amount).
+
+```kql
+DebitTxn_M = DebitTxn_b / 1000000.0                        // in millions
+```
+- **Detects:** surges in **how many** withdrawals occur (e.g. a run driven by many small debits).
+- **Breach:** `DebitTxn_M >= threshold`.
+
+### 5. Transaction Velocity — `Current Debit_Transaction / Avg. prior N buckets`
+Ratio of the current bucket's debit count to the **average of all prior 30-minute buckets
+that day** (00:00 → current − 1). `N` is the **expanding** number of available prior
+buckets (grows through the day), not a fixed window.
+
+```kql
+// per (Scope, Date) ordered by bucket ascending
+| serialize
+| extend _priorSum   = row_cumsum(DebitTxn_b) - DebitTxn_b     // sum of prior buckets
+| extend _priorCount = row_cumsum(1) - 1                        // N = number of prior buckets
+| extend AvgPrior    = iff(_priorCount > 0, _priorSum / _priorCount, real(null))
+| extend Velocity    = iff(isnull(AvgPrior) or AvgPrior == 0, real(null), DebitTxn_b / AvgPrior)
+```
+- **Example:** current 08:00–08:30 → N = 16 prior buckets; current 09:00–09:30 → N = 18.
+  If the current bucket has 800 debits and the prior average is 375 → Velocity = **2.13×**.
+- **Detects:** an abrupt spike in transaction pace relative to the day's own baseline.
+- **Breach:** `Velocity >= threshold` (e.g. L1 1.5, L2 2.0, L3 3.0).
+- **Guardrails:** first bucket of the day (no prior) or a zero baseline → `null` → Normal.
+  "Available" prior buckets = buckets that have data; truly-empty slots are excluded.
+
+### 6. Average Debit Amount — `Gross Outflow / Debit_Transaction`
+Mean value per debit transaction — a **large-value-movement** signal (a few big tickets
+rather than many small ones).
+
+```kql
+AvgDebit_MB = iff(DebitTxn_b > 0, (GrossOutflow_b / DebitTxn_b) / 1000000.0, real(null))
+```
+- **Detects:** unusually large average ticket size (institutional / high-value withdrawals).
+- **Breach:** `AvgDebit_MB >= threshold`.
+- **Guardrail:** `DebitTxn_b = 0` → `null` → Normal.
+
+### 7. Cluster Share (Retails vs Non-Retails) — `Cluster net outflow / Total-bank net outflow`
+Share of the bank's net outflow concentrated in a cluster (Retails or Non-Retails).
+A **concentration** signal: outflow bunching into one channel group.
+
+```kql
+RetailsShare    = iff(Net_Total != 0, Net_Retails    / Net_Total, real(null))
+NonRetailsShare = iff(Net_Total != 0, Net_NonRetails / Net_Total, real(null))
+```
+- **Detects:** whether outflow is broad-based or driven by one cluster.
+- **Breach:** thresholds **pending** (`xx` in the requirement) — the value is computed and
+  carried, tiering is deferred until thresholds are provided.
+- **Guardrail:** `Net_Total = 0` → `null`.
+
+### 8. Sudden Share Jump — `Current share − Prior share`
+Change in a cluster's share versus the **prior 30-minute bucket** — detects an abrupt
+concentration shift even when the absolute share is not yet extreme.
+
+```kql
+// per (Scope/cluster, Date) ordered by bucket ascending
+| serialize
+| extend ShareJump = Share_b - prev(Share_b)
+```
+- **Detects:** rapid migration of outflow into a cluster between consecutive buckets.
+- **Breach:** thresholds **pending** (`xx`).
+
+---
+
+## Alert levels & thresholds
+
+Thresholds form a matrix of **Scope × Indicator × Level × Window × Day type = 864 cells**
+(`3 × 8 × 3 × 4 × 3`). Because that is far too many to hand-manage as Activator rules,
+they live in a **reference table** `EarlyWarningThresholds` (CSV-editable, mirroring the
+`OperatingWindowsTimes` / holiday pattern):
+
+| Column | Example |
+| --- | --- |
+| `Scope` | `TOTAL_BANK` |
+| `IndicatorNo` | `2` |
+| `AlertLevel` | `L3` |
+| `WindowCode` | `MORNING_WORKING_HOUR` |
+| `DayType` | `BUSINESS_DAY` |
+| `Comparator` | `LE` (`GE` / `LE`) |
+| `Threshold` | `-5500` (null for pending `xx`) |
+
+**Tier assignment:** the indicator value is compared to its L1/L2/L3 thresholds for the
+current `(Scope, Window, DayType)`; the assigned level is the **highest breached** tier
+(`L3 > L2 > L1 > L0`). Editing a threshold = update one row and re-ingest the CSV — no KQL
+or Activator rule change. Activator then simply watches the computed `Alert_Level`.
+
+**Example (Total Bank · Net Outflow · morning · Business Day):** L1 −3500, L2 −4500,
+L3 −5500 MB. A net of −4800 MB → breaches L1 and L2, not L3 → **L2 Warning**.
+
+---
+
+## 30-minute notification (digest)
+
+Independent of the tier alerts, a scheduled 30-minute message reports, per scope:
+
+```
+Periodic net outflow of 08:00 - 08:30 = xx.xx bn,
+Cumulative net outflow from 00:00 until 08:30 = xx.xx bn
 ```
 
----
-
-## P4.3 — Verify
-
-Run the verification script:
-
-**[kql/06-verify-Summary_Alert_Channel.kql](kql/06-verify-Summary_Alert_Channel.kql)**
-
-| Check | Expected |
-|---|---|
-| Materialized view exists & healthy | `mv_Summary_Product_Channel_Alert`, `IsHealthy = true` |
-| MV schema | 12 columns (group keys first, then aggregates) |
-| Query the view | one row per Date+Product+Channel+Channel_Group |
-| Wrapper function | `Summary_Alert_Channel_Gold()` returns the canonical column order |
-| Reconcile MV vs Bronze | totals match for a sample date |
-
-Each `.show` command has a clean table-format **"b"** companion (using `todynamic(...)`), consistent with Production 01's verify script.
+- **Periodic** = current 30-minute `NetOutflow` (in **billions**, `/1e9`).
+- **Cumulative** = `AccumNetOutflow` from 00:00 (in **billions**).
 
 ---
 
-## P4.4 — Differences from Workshop
+## Planned artifacts (build order)
 
-| Aspect | Workshop 03 | Production 04 |
-|---|---|---|
-| **Source schema** | included `Transaction_Type` | **removed** — groups by Date+Product+Channel+Channel_Group (Time via `max(Time)`) |
-| **Amount totals** | `real` | **`decimal`** (matches Bronze `decimal` columns) |
-| **Txn count source** | `Total_Txn` | **`Total_Transaction`** |
-| **Verify script** | inline checks | dedicated [06-verify-Summary_Alert_Channel.kql](kql/06-verify-Summary_Alert_Channel.kql) with clean "b" tables |
+1. **`EarlyWarningThresholds`** reference table — DDL + CSV mapping + generated 864-row CSV (from the three scope tabs) + verify.
+2. **`mv_EarlyWarning_Base`** — 30-minute base MV on Silver: channel-excluded, `IsRetail`-tagged, with `WindowCode` / `DayClassification` / `EventFlag`, periodic sums (`GrossOutflow`, `Credit`, `Net`, `DebitTxn`).
+3. **`Gold_EarlyWarning()`** — scope roll-up + cumulative / velocity / avg-debit / cluster-share / sudden-jump + threshold join → `Alert_Level` per Scope × Indicator.
+4. **Activator source query + 30-minute digest query**.
 
 ---
 
-## ✅ Exit Criteria
+## Open points
 
-Before proceeding to **[Production 05](../05-data-pipeline/)**, verify:
-
-- [ ] Materialized view `mv_Summary_Product_Channel_Alert` exists and is healthy (`IsHealthy = true`)
-- [ ] MV auto-aggregates Bronze — one row per `Date + Product + Channel + Channel_Group`
-- [ ] Wrapper function `Summary_Alert_Channel_Gold()` returns the canonical column order
-- [ ] MV totals reconcile against Bronze for a sample date
-
----
-
-## 📚 Reference Links
-
-| Concept | Documentation |
-|---|---|
-| Materialized views | [Materialized views overview](https://learn.microsoft.com/fabric/real-time-intelligence/materialized-view) |
-| Wrapper functions | [User-defined functions (KQL)](https://learn.microsoft.com/kusto/query/functions/user-defined-functions) |
-| Aggregation functions | [summarize operator](https://learn.microsoft.com/kusto/query/summarize-operator) |
+- Confirm the **measurement period** for indicators #1/#2/#4/#6 (30-min periodic — assumed — vs window-to-date).
+- Provide **thresholds for #7 Cluster Share and #8 Sudden Share Jump** (currently `xx`).
+- Confirm **Sudden Share Jump** compares against the **prior 30-min bucket** (vs prior window).
