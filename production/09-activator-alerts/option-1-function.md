@@ -69,3 +69,55 @@ Cumulative net outflow from 00:00 until {BucketEnd} = {AccumNetOutflow_Bn} bn
 - Set the Queryset / alert cadence to **30 minutes** to match the bucket grain.
 - The function recomputes today's rows on each evaluation — fine for a single day.
 - Indicator formulas, units, and directions: [Gold EWI README](../04-gold-summary-table/README.md).
+
+## Appendix — Can Activator do `if / then / else`?
+
+**No.** An Activator rule is *one condition → one action*. The **Operation** dropdown
+(`On every value`, `Becomes greater than`, `Enters/Exits range`, `Changes`, …) plus any extra
+conditions are **AND-combined filters** — there is no `else` branch and no multiple action paths
+inside a single rule. To get tiered (L1/L2/L3) behaviour, use one of the three patterns below.
+
+### A. One rule per tier (simple, but rules overlap)
+
+Three rules on the same event, each with its own threshold and action:
+
+| Rule | Condition | Action |
+|------|-----------|--------|
+| `rule_NetOutflow_L1_watch`    | `NetOutflow_MB` becomes ≤ **-3000** | Teams/email "Watch" |
+| `rule_NetOutflow_L2_warning`  | `NetOutflow_MB` becomes ≤ **-4000** | "Warning" + more recipients |
+| `rule_NetOutflow_L3_critical` | `NetOutflow_MB` becomes ≤ **-5500** | "Critical" + escalate |
+
+A value of −6000 trips all three. Mitigate with **band** conditions (L2 = *enters range*
+−4000…−5000) or resolve the tier in KQL (pattern **B**).
+
+### B. Compute the tier in KQL with `case()` (recommended)
+
+Move the `if/then/else` upstream into the query. The `case(...)` **is** the branch; Activator
+just reacts to the resulting label:
+
+```kql
+Gold_EarlyWarning()
+| where Scope == "TOTAL_BANK"
+| summarize arg_max(Bucket_Start, *) by Scope
+| extend Alert_Level = case(
+    NetOutflow_MB <= -5500, "L3_CRITICAL",
+    NetOutflow_MB <= -4000, "L2_WARNING",
+    NetOutflow_MB <= -3000, "L1_WATCH",
+                            "L0_NORMAL")
+| project Scope, Date_ICT, Bucket_Label, WindowCode, DayType, NetOutflow_MB, Alert_Level
+```
+
+Then one rule watches `Alert_Level`: **Operation = `Changes`** (or `On every value` filtered to
+`Alert_Level <> "L0_NORMAL"`). To vary the value by `WindowCode` / `DayType`, replace the fixed
+constants with the threshold **`datatable`** join from the optional block in
+[kql/10-ewi-example1-NetOutflow-TotalBank.kql](kql/10-ewi-example1-NetOutflow-TotalBank.kql).
+
+### C. Multiple conditions in one rule (AND only)
+
+Add conditions to narrow *when* the single action fires
+(e.g. `NetOutflow_MB ≤ -4000` **AND** `WindowCode == "MORNING_WORKING_HOUR"`) — still no `else`.
+
+**Guidance:** prefer **B**. Keep one Activator rule bound to `Alert_Level` (or a numeric
+threshold), and let the KQL `case()` own the tiering — cleaner, versioned in the repo, and no
+overlapping-rule noise. Whichever pattern you pick, keep the **Object** column (`Scope`) and the
+watched column (`NetOutflow_MB` / `Alert_Level`) names stable so the rule binding survives edits.
