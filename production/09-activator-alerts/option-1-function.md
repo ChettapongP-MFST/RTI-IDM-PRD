@@ -26,25 +26,25 @@ Gold **Option 1** deployed — base MV + function:
 
 ## Examples
 
-### Example 1 — Net Outflow, latest bucket per scope
+### Example 1 — Net Outflow, Total Bank (latest bucket)
 
 Full script: [kql/10-ewi-example1-NetOutflow-TotalBank.kql](kql/10-ewi-example1-NetOutflow-TotalBank.kql).
 
-**Source query** — the newest 30-min bucket per scope, exposing `NetOutflow_Bn` (billions):
+**Source query** — the latest 30-min bucket for **Total Bank**, exposing `NetOutflow_MB`:
 
 ```kql
 Gold_EarlyWarning()
-//| where Scope == "TOTAL_BANK"                 // uncomment to scope to Total Bank only
-| summarize arg_max(Bucket_Start, *) by Scope   // latest 30-min bucket per scope
-| project Scope, Date_ICT, Bucket_Label, WindowCode, DayType, NetOutflow_Bn
-| order by Scope asc
+| where Scope == "TOTAL_BANK"
+| summarize arg_max(Bucket_Start, *) by Scope   // latest 30-min bucket
+| project Scope, Date_ICT, Bucket_Label, WindowCode, DayType, NetOutflow_MB
 ```
 
-**Activator rule** — threshold `NetOutflow_Bn` directly (single editable constant):
-- **Object**: `Scope` (`TOTAL_BANK` / `RETAILS` / `NON_RETAILS`).
-- **Condition**: `NetOutflow_Bn` **≤** `<value>` (e.g. `-5.5` for −5.5 bn; more negative = worse).
+**Activator rule** — item `act-deposit-ewi`, rule `rule_NetOutflow_MB_alert`; threshold
+`NetOutflow_MB` directly (single editable constant):
+- **Object**: `Scope` (here `TOTAL_BANK`).
+- **Condition**: `NetOutflow_MB` **≤** `<value>` (e.g. `-5500` for −5500 MB; more negative = worse).
 - **Tier (optional)**: add L1/L2/L3 as three rules with different values.
-- **Actions**: Email / Teams with `NetOutflow_Bn` / `WindowCode` / `DayType` as dynamic content.
+- **Actions**: Email / Teams with `NetOutflow_MB` / `WindowCode` / `DayType` as dynamic content.
 
 > **Window × day-type thresholds:** a single numeric condition can't vary the value by
 > `WindowCode` / `DayType`. When those matter (e.g. −3500 morning vs −3000 before-hours), use
