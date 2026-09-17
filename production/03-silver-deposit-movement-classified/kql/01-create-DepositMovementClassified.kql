@@ -2,7 +2,8 @@
 // Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
 //
 // The first 15 columns exactly mirror Bronze DepositMovement. The remaining
-// columns add Bangkok-local calendar, holiday, and operating-window attributes.
+// columns add Bangkok-local calendar, holiday, operating-window, and
+// calendar-event (month-end / payroll / long-weekend) attributes.
 
 .create-merge table DepositMovementClassified (
     Date:                           datetime,
@@ -34,7 +35,11 @@
     OperatingWindowEndTime:         timespan,
     OperatingWindowSortOrder:       int,
     WindowMatchCount:                long,
-    ClassificationStatus:           string
+    ClassificationStatus:           string,
+    IsMonthEnd:                     bool,
+    IsPayroll:                      bool,
+    IsLongWeekend:                  bool,
+    EventFlag:                      string
 )
 with (folder = "Silver")
 

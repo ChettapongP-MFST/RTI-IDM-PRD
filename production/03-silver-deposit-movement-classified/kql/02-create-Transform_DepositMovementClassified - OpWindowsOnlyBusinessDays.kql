@@ -23,14 +23,19 @@ Transform_DepositMovementClassified()
     // The half-open range includes every instant in the current execution year.
     let CurrentYearStart = startofyear(now());
     let NextYearStart = datetime_add("year", 1, CurrentYearStart);
+    // Note 3b: The event-flag calendar spans a small pad on each side of the year
+    // so long-weekend runs and payroll shifts that cross the boundary resolve
+    // correctly. Padded dates outside the current year are never emitted.
+    let CalendarStart = datetime_add("day", -3, CurrentYearStart);
+    let CalendarEnd = datetime_add("day", 3, NextYearStart);
     // Note 4: HolidayByDate becomes a property bag such as
     // {"2026-01-01":"New Year's Day"}, enabling a lookup by local date key.
     let HolidayByDate = toscalar(
         ThailandFinancialInstitutionHoliday
         // Note 5: Filter before summarize so holidays outside the current year
         // do not consume aggregation memory or participate in classification.
-        | where HolidayDate >= CurrentYearStart
-            and HolidayDate < NextYearStart
+        | where HolidayDate >= CalendarStart
+            and HolidayDate < CalendarEnd
         // Note 6: Normalize timestamps to dates and choose one deterministic
         // name if the reference table contains duplicate rows for the same day.
         | summarize HolidayName = min(HolidayName)
@@ -51,6 +56,44 @@ Transform_DepositMovementClassified()
             "StartTime", StartTime,
             "EndTime", EndTime,
             "SortOrder", SortOrder))
+    );
+    // Note 8b: YearCalendar enumerates every local date in the padded year and
+    // flags weekends and holidays so business days can be derived deterministically.
+    let YearCalendar =
+        range _CalDay from CalendarStart to datetime_add("day", -1, CalendarEnd) step 1d
+        | extend _CalKey = format_datetime(_CalDay, "yyyy-MM-dd")
+        | extend _CalIsWeekend = dayofweek(_CalDay) in (0d, 6d)
+        | extend _CalIsHoliday = bag_has_key(HolidayByDate, _CalKey)
+        | extend _CalIsBusinessDay = not(_CalIsWeekend) and not(_CalIsHoliday);
+    // Note 8c: PayrollDates resolves each scheduled payday (the 25th and the last
+    // calendar day of the month) backward to the previous business day when it
+    // falls on a weekend or holiday, then keeps the effective dates as a set.
+    let PayrollDates = toscalar(
+        YearCalendar
+        | where dayofmonth(_CalDay) == 25 or _CalDay == startofday(endofmonth(_CalDay))
+        | project _AnchorDate = _CalDay
+        | mv-expand _Offset = range(0, 14, 1) to typeof(long)
+        | extend _Candidate = datetime_add("day", -_Offset, _AnchorDate)
+        | extend _CandKey = format_datetime(_Candidate, "yyyy-MM-dd")
+        | extend _CandIsBusinessDay =
+            not(dayofweek(_Candidate) in (0d, 6d))
+            and not(bag_has_key(HolidayByDate, _CandKey))
+        | where _CandIsBusinessDay
+        | summarize arg_min(_Offset, _Candidate) by _AnchorDate
+        | summarize PayrollSet = make_set(format_datetime(_Candidate, "yyyy-MM-dd"))
+    );
+    // Note 8d: LongWeekendDates finds maximal runs of consecutive non-business
+    // days. A running count of business days holds one id across each gap, so a
+    // run of three or more non-business days marks every date it contains.
+    let LongWeekendDates = toscalar(
+        YearCalendar
+        | order by _CalDay asc
+        | extend _BusinessRunId = row_cumsum(toint(_CalIsBusinessDay))
+        | where not(_CalIsBusinessDay)
+        | summarize _RunLength = count(), _RunDates = make_list(_CalKey) by _BusinessRunId
+        | where _RunLength >= 3
+        | mv-expand _RunDate = _RunDates to typeof(string)
+        | summarize LongWeekendSet = make_set(_RunDate)
     );
     // Note 9: Processing starts with the Bronze rows supplied to this function.
     DepositMovement
@@ -118,6 +161,19 @@ Transform_DepositMovementClassified()
             WindowMatchCount == 0, "NO_WINDOW_MATCH",
             WindowMatchCount > 1, "MULTIPLE_WINDOW_MATCHES",
             "CLASSIFIED")
+    // Note 19b: Event flags mark calendar events that shift deposit behaviour.
+    // Month-end is the last calendar day; payroll and long-weekend membership
+    // come from the pre-computed sets. EventFlag joins the active events with a
+    // comma, or reports NORMAL when none apply.
+    | extend
+        IsMonthEnd = LocalDate == startofday(endofmonth(LocalDate)),
+        IsPayroll = set_has_element(PayrollDates, _LocalDateKey),
+        IsLongWeekend = set_has_element(LongWeekendDates, _LocalDateKey)
+    | extend _EventList = set_difference(pack_array(
+            iff(IsMonthEnd, "MONTH_END", ""),
+            iff(IsPayroll, "PAYROLL", ""),
+            iff(IsLongWeekend, "LONG_WEEKEND", "")), dynamic([""]))
+    | extend EventFlag = iff(array_length(_EventList) == 0, "NORMAL", strcat_array(_EventList, ","))
     // Note 20: The final projection removes temporary underscore-prefixed fields
     // and fixes the exact column order required by DepositMovementClassified.
     | project
@@ -130,7 +186,8 @@ Transform_DepositMovementClassified()
         DayClassification, HolidayName,
         OperatingWindowCode, OperatingWindowName,
         OperatingWindowStartTime, OperatingWindowEndTime, OperatingWindowSortOrder,
-        WindowMatchCount, ClassificationStatus
+        WindowMatchCount, ClassificationStatus,
+        IsMonthEnd, IsPayroll, IsLongWeekend, EventFlag
 }
 
 .show function Transform_DepositMovementClassified

@@ -21,6 +21,7 @@ Existing Gold summaries (unchanged)
 - Apply precedence in this order: `WEEKEND`, `HOLIDAY`, `BUSINESS_DAY`.
 - Set `IsBusinessDay` only when the date is neither a weekend nor a financial-institution holiday.
 - Match operating windows for business days, weekends, and holidays with `[StartTime, EndTime)`: include the start and exclude the end.
+- Flag calendar events per row: `IsMonthEnd` (last calendar day), `IsPayroll` (the 25th and month-end, each shifted to the previous business day when it lands on a weekend or holiday), and `IsLongWeekend` (within a run of three or more consecutive non-business days); summarise them in `EventFlag` (`NORMAL` when none apply).
 - Surface malformed times and zero/multiple matches through `ClassificationStatus`; never silently discard them.
 
 The existing Bronze table and Gold materialized view are not modified by this module.
@@ -67,7 +68,8 @@ The function reads `DepositMovement` and enriches each Bronze row without aggreg
 6. **Evaluate operating windows per row.** `mv-apply` evaluates every reference window inside the current source row, regardless of day classification. A window matches when its parsed start time is valid and the time is within the half-open interval `[StartTime, EndTime)`. A boundary time therefore belongs to the window that starts at that time, not the one that ends there.
 7. **Return window details only for one match.** `WindowMatchCount` records how many windows matched. The code, name, boundaries, and sort order are populated only when that count is exactly one.
 8. **Assign a processing status.** Status precedence is `INVALID_TIME_FORMAT`, `NO_WINDOW_MATCH`, `MULTIPLE_WINDOW_MATCHES`, then `CLASSIFIED`. The same window validation applies to business days, weekends, and holidays while preserving every source row for investigation.
-9. **Project the Silver contract.** The final `project` emits the 15 Bronze columns followed by the 15 classification columns in the exact order and types required by `DepositMovementClassified`. This exact schema match is required by the update policy.
+9. **Derive calendar event flags.** A padded calendar of the execution year is built once from date arithmetic and the holiday reference. `IsMonthEnd` is the last calendar day of the month. `IsPayroll` covers the 25th and month-end, each shifted to the previous business day when it lands on a weekend or holiday. `IsLongWeekend` is true for every date inside a run of three or more consecutive non-business days. `EventFlag` joins the active events (`MONTH_END`, `PAYROLL`, `LONG_WEEKEND`) with a comma, or reads `NORMAL` when none apply. No additional reference table is required.
+10. **Project the Silver contract.** The final `project` emits the 15 Bronze columns followed by the 19 classification columns in the exact order and types required by `DepositMovementClassified`. This exact schema match is required by the update policy.
 
 The update policy invokes `Transform_DepositMovementClassified()` for newly ingested Bronze data. Because the policy is transactional, a transformation failure also fails the corresponding Bronze ingestion rather than allowing Bronze and Silver to diverge. Updating the function or its reference tables does not reprocess existing extents; historical rows require the controlled backfill or rebuild described under **Reference-data or schema changes**.
 
@@ -92,6 +94,10 @@ The first 15 columns are unchanged from Bronze. Silver appends:
 | `OperatingWindowSortOrder` | `int` | Display order from the reference table |
 | `WindowMatchCount` | `long` | Number of matching reference windows |
 | `ClassificationStatus` | `string` | `CLASSIFIED` or an actionable exception |
+| `IsMonthEnd` | `bool` | Local date is the last calendar day of the month |
+| `IsPayroll` | `bool` | Payday — the 25th or month-end, shifted to the previous business day off weekends/holidays |
+| `IsLongWeekend` | `bool` | Date lies within a run of three or more consecutive non-business days |
+| `EventFlag` | `string` | Comma-joined active events (`MONTH_END`, `PAYROLL`, `LONG_WEEKEND`), or `NORMAL` |
 
 ## Operations
 
@@ -133,4 +139,5 @@ DepositMovementClassified
 - `IsBusinessDay` is populated and agrees with `DayClassification == "BUSINESS_DAY"`.
 - Every row with a valid `Time` has exactly one operating-window match, including business days, weekends, and holidays.
 - Weekend dates win over holiday dates.
+- Event flags are consistent: `EventFlag` reads `NORMAL` only when no individual flag is set, and each set flag appears as a token in `EventFlag` (verification checks 13–14 return no rows).
 - Post-backfill counts reconcile by pipeline load identity.

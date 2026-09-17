@@ -131,3 +131,41 @@ DepositMovementClassified
 | summarize Rows = count()
     by IsBusinessDay, DayClassification, OperatingWindowCode, ClassificationStatus
 | order by IsBusinessDay desc, DayClassification asc, OperatingWindowCode asc
+
+// 13. Event-flag integrity. EventFlag must read NORMAL exactly when no individual
+// flag is set, and every set flag must appear as a token in EventFlag.
+// Expected: no rows.
+Transform_DepositMovementClassified()
+| extend _AnyFlag = IsMonthEnd or IsPayroll or IsLongWeekend, _Tokens = split(EventFlag, ",")
+| where (not(_AnyFlag) and EventFlag != "NORMAL")
+    or (_AnyFlag and EventFlag == "NORMAL")
+    or (IsMonthEnd and not(set_has_element(_Tokens, "MONTH_END")))
+    or (IsPayroll and not(set_has_element(_Tokens, "PAYROLL")))
+    or (IsLongWeekend and not(set_has_element(_Tokens, "LONG_WEEKEND")))
+| project Date, EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend
+
+// Run after backfill/live ingestion to verify persisted rows. Expected: no rows.
+DepositMovementClassified
+| extend _AnyFlag = IsMonthEnd or IsPayroll or IsLongWeekend, _Tokens = split(EventFlag, ",")
+| where (not(_AnyFlag) and EventFlag != "NORMAL")
+    or (_AnyFlag and EventFlag == "NORMAL")
+    or (IsMonthEnd and not(set_has_element(_Tokens, "MONTH_END")))
+    or (IsPayroll and not(set_has_element(_Tokens, "PAYROLL")))
+    or (IsLongWeekend and not(set_has_element(_Tokens, "LONG_WEEKEND")))
+| project Date, EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend
+
+// 14. Month-end must be the last calendar day of the month. Expected: no rows.
+Transform_DepositMovementClassified()
+| where IsMonthEnd != (LocalDate == startofday(endofmonth(LocalDate)))
+| project Date, LocalDate, IsMonthEnd
+
+// 15. Event-flag distribution and the distinct dates behind each flag, for review.
+DepositMovementClassified
+| summarize Rows = count() by EventFlag
+| order by Rows desc
+
+DepositMovementClassified
+| where IsMonthEnd or IsPayroll or IsLongWeekend
+| summarize EventDates = make_set(format_datetime(LocalDate, "yyyy-MM-dd"))
+    by IsMonthEnd, IsPayroll, IsLongWeekend, EventFlag
+| order by EventFlag asc
