@@ -25,34 +25,36 @@ Gold function: Gold_EarlyWarning()  ◄──  EWI_AlertThreshold   (reference t
         │   join value → L1/L2/L3 → assign Alert_Level (L0–L3)
         ▼
 one row per Scope × 30-min bucket × indicator  ·  Value + Alert_Level
-        │
-        ├─ Option 1 ────────────────────────►  Data Activator runs the function
-        │
-        └─ Option 3 ─► [30-min append] ─► DepositMovementEarlyWarning ─► Activator + Power BI
+        │   30-min scheduled .set-or-append (idempotent)
+        ▼
+DepositMovementEarlyWarning (Gold table)  ─►  Data Activator  +  Power BI
 ```
 
-The function and `EWI_AlertThreshold` reference table are **shared**; the two options differ only
-in how the enriched rows are consumed — see [Architecture options](#architecture-options). There is
-**no materialized view** — `Gold_EarlyWarning()` aggregates Silver directly (window functions such
-as cumulative / velocity / jump are not allowed in an MV but are fine in a function).
+There is **no materialized view** — `Gold_EarlyWarning()` aggregates Silver directly (window
+functions such as cumulative / velocity / jump are not allowed in an MV but are fine in a
+function). The enriched rows are persisted to `DepositMovementEarlyWarning` by a 30-min scheduled
+append, and Data Activator + Power BI read that table.
+
+> *A function-only variant (Activator runs `Gold_EarlyWarning()` directly, no stored table) is
+> documented in [option-1-function.md](option-1-function.md) but is not the chosen path.*
 
 ---
 
-## Architecture options
+## Architecture (Option 3 — persisted table)
 
-| | **Option 1 — Function** | **Option 3 — Persisted table** |
-| --- | --- | --- |
-| Objects | function + reference table | function + reference table + `DepositMovementEarlyWarning` + scheduler |
-| Activator source | runs `Gold_EarlyWarning()` on a schedule | reads `DepositMovementEarlyWarning` table |
-| History persisted | ❌ recomputed each run | ✅ stored (dashboards, backtesting, calibration) |
-| Extra moving parts | none | 30-min Fabric pipeline + idempotent append |
-| Best for | alerting only, simplest | alerting **+** Power BI dashboard + history |
+The chosen path persists the enriched rows so **Activator and Power BI read a stored table**, and
+history is kept for dashboards, backtesting, and percentile calibration:
 
-- **Option 1 — [option-1-function.md](option-1-function.md)**
-- **Option 3 — [option-3-snapshot-table.md](option-3-snapshot-table.md)**
+| Object | Role |
+| --- | --- |
+| `EWI_AlertThreshold` (reference) | L1/L2/L3 per Scope × Indicator × Window × DayType |
+| `Gold_EarlyWarning()` (function) | self-contained; computes indicators + `Alert_Level` |
+| `DepositMovementEarlyWarning` (table) | persisted output, appended every 30 min |
+| Scheduler | Fabric pipeline + notebook running the idempotent append |
 
-Both use the same indicators, dimensions, and long schema documented below. The Activator wiring
-for each option is in [Production 09](../09-activator-alerts/).
+Full steps: **[option-3-snapshot-table.md](option-3-snapshot-table.md)**. The Activator wiring is in
+[Production 09](../09-activator-alerts/). *(A function-only alternative exists in
+[option-1-function.md](option-1-function.md) but is not used.)*
 
 ---
 
@@ -364,7 +366,7 @@ Cumulative net outflow from 00:00 until 08:30 = xx.xx bn
 
 Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`).
 
-**Core — both options:**
+**Core:**
 
 1. ⏳ **`EWI_AlertThreshold`** reference table — [kql/16-create-EWI_AlertThreshold.kql](kql/16-create-EWI_AlertThreshold.kql)
    (create + policies + CSV mapping) and [kql/17-load-EWI_AlertThreshold.kql](kql/17-load-EWI_AlertThreshold.kql)
@@ -376,15 +378,12 @@ Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`).
    and assigns `Alert_Level` (L0–L3) per Scope × bucket × indicator. **No MV.**
 3. ⏳ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql).
 
-**Option 1 — function only** ([option-1-function.md](option-1-function.md)): stop after step 2;
-wire Activator to `Gold_EarlyWarning()`.
-
-**Option 3 — persisted table** ([option-3-snapshot-table.md](option-3-snapshot-table.md)): also run —
+**Persist + schedule (Option 3):**
 
 4. ⏳ **`DepositMovementEarlyWarning`** table — [kql/14-create-DepositMovementEarlyWarning.kql](kql/14-create-DepositMovementEarlyWarning.kql).
 5. ⏳ **Idempotent 30-min append** — [kql/15-append-DepositMovementEarlyWarning.kql](kql/15-append-DepositMovementEarlyWarning.kql), scheduled by a Fabric Data Pipeline + Notebook (module-07 pattern).
 
-**Activator (either option):** [Production 09 — Activator Alerts](../09-activator-alerts/) *(⏳ wiring next)*.
+**Activator:** [Production 09 — Activator Alerts](../09-activator-alerts/) *(⏳ wiring next)*.
 
 ---
 

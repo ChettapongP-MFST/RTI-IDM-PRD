@@ -10,39 +10,39 @@ plus a 30-minute net-outflow digest.
 
 ---
 
-## Source — two options (match the Gold architecture)
+## Source — `DepositMovementEarlyWarning` table (Option 3)
 
-Activator consumes the Gold EWI rows — one row per **Scope × 30-min bucket** with every
-dimension as a **filter** column and every indicator as a **threshold** column. There are two
-ways to provide that source, matching the Gold [architecture options](../04-gold-summary-table/README.md#architecture-options):
+Activator consumes the Gold EWI rows — one row per **Scope × 30-min bucket × indicator**, each
+carrying its `Value` and an assigned **`Alert_Level`** (L0–L3) from the `EWI_AlertThreshold`
+reference table. The chosen path reads the persisted **`DepositMovementEarlyWarning`** table
+(populated every 30 min), which also powers Power BI dashboards, backtesting, and percentile
+calibration.
 
-| | Source | Page |
-| --- | --- | --- |
-| **Option 1** | the `Gold_EarlyWarning()` **function** (KQL Queryset, run on schedule) | [option-1-function.md](option-1-function.md) |
-| **Option 3** | the `Gold_EarlyWarning_Snapshot` **table** (populated every 30 min) | [option-3-snapshot-table.md](option-3-snapshot-table.md) |
+**Wiring:** [option-3-snapshot-table.md](option-3-snapshot-table.md).
 
-- **Option 1** — simplest; alerting only, no history.
-- **Option 3** — Activator reads a stored table; also powers Power BI dashboards, backtesting,
-  and percentile calibration.
+> *A function-only alternative (Activator runs `Gold_EarlyWarning()` directly, no stored table) is
+> documented in [option-1-function.md](option-1-function.md) but is not the chosen path.*
 
 ---
 
 ## Alert model (both options)
 
-- **Object identity** = `Scope` (`TOTAL_BANK` / `RETAILS` / `NON_RETAILS`) — 3 tracked objects.
-- **Filter** in / out by `WindowCode`, `DayType`, `EventFlag` — Activator property filters.
-- **Threshold** a numeric indicator column (`NetOutflow_MB`, `Velocity_X`, `ClusterShare_Pct`, …)
-  with a value typed in the Activator UI. Because each rule is already filtered to one context,
-  its threshold is a single editable constant.
-- **Tier** a metric with L1/L2/L3 as three conditions, or three rules with a `Changes` guard.
-- **30-min digest** — a scheduled message using `NetOutflow_Bn` (periodic) and
-  `AccumNetOutflow_Bn` (cumulative from 00:00).
+- **Object identity** = `Object_Id` = `Scope|IndicatorKey` (e.g. `TOTAL_BANK|NetOutflow_MB`) —
+  each scope-indicator is tracked independently.
+- **Watch `Alert_Level`** — the level is already computed per row from `EWI_AlertThreshold`
+  (per `Window × DayType`), so a rule is a single condition: `Alert_Level in ('L2','L3')`
+  (or `Alert_Rank >= 2`). No thresholds typed in Activator.
+- **Filter** (optional) by `WindowCode`, `DayType`, `EventFlag`, or a specific `IndicatorKey`.
+- **Retune** by editing [../04-gold-summary-table/data/ewi-alert-threshold.csv](../04-gold-summary-table/data/ewi-alert-threshold.csv)
+  and reloading `EWI_AlertThreshold` — no rule change.
+- **30-min digest** — a scheduled message from the `NetOutflow_MB` / `AccumNetOutflow_MB` rows
+  (billions = `Value / 1000`).
 
 ### Example rule
-> Object `TOTAL_BANK` · filter `WindowCode = MORNING_WORKING_HOUR` and `DayType = BUSINESS_DAY`
-> · when `NetOutflow_MB <= -5500` → **L3 Critical**.
-
-To retune, edit the number in the Activator UI. To ignore holidays, drop the `DayType` filter.
+> Object `TOTAL_BANK|NetOutflow_MB` · when `Alert_Level in ('L2','L3')` → alert.
+>
+> The level already encodes the morning/business-day threshold; to change it, edit the reference
+> CSV and reload. To watch a different indicator, point the object at another `Scope|IndicatorKey`.
 
 ---
 
@@ -51,26 +51,26 @@ To retune, edit the number in the Activator UI. To ignore holidays, drop the `Da
 Formulas, units, and directions for all 8 indicators are in the
 [Gold EWI README](../04-gold-summary-table/README.md):
 
-| # | Indicator | Column | Unit | Breach |
+| # | Indicator | `IndicatorKey` | Unit | Breach |
 | --- | --- | --- | --- | --- |
 | 1 | Gross Outflow | `GrossOutflow_MB` | MB | ≥ |
 | 2 | Net Outflow | `NetOutflow_MB` | MB | ≤ (neg) |
 | 3 | Accum Net Outflow | `AccumNetOutflow_MB` | MB | ≤ (neg) |
 | 4 | Debit Txn Count | `DebitTxnCount_M` | Million | ≥ |
 | 5 | Transaction Velocity | `Velocity_X` | X | ≥ |
-| 6 | Average Debit Amount | `AvgDebitAmount_KThb` | K THB | ≥ |
+| 6 | Average Debit Amount | `AvgDebitAmount_MB` | MB | ≥ |
 | 7 | Cluster Share | `ClusterShare_Pct` | % | ≥ *(threshold pending)* |
 | 8 | Sudden Share Jump | `ShareJump_Pct` | pp | ≥ *(threshold pending)* |
 
-#7 Cluster Share (`%`) and #8 Sudden Share Jump (`pp`) emit values now; their **alert
-thresholds are pending** the customer's numbers.
+Each indicator is a **row** (`IndicatorKey`) with its `Value` and `Alert_Level`. #7 Cluster Share
+and #8 Sudden Share Jump emit values now; their thresholds are blank in `EWI_AlertThreshold` and
+stay `L0` until the customer supplies numbers.
 
 ---
 
 ## Deployment
 
-1. Deploy the Gold layer — [Production 04](../04-gold-summary-table/) (core + your chosen option).
-2. Wire Activator for that option:
-   - Option 1 → [option-1-function.md](option-1-function.md)
-   - Option 3 → [option-3-snapshot-table.md](option-3-snapshot-table.md)
+1. Deploy the Gold layer — [Production 04](../04-gold-summary-table/) (reference table + function
+   + `DepositMovementEarlyWarning` + 30-min append).
+2. Wire Activator to the table — [option-3-snapshot-table.md](option-3-snapshot-table.md).
 3. Add the 30-minute digest rule.

@@ -6,23 +6,23 @@ pattern as the legacy alert in [README_old.md](README_old.md)). No stored table.
 
 ## Prerequisite
 
-Gold **Option 1** deployed — base MV + function:
+Gold **Option 1** deployed — reference table + function:
 [../04-gold-summary-table/option-1-function.md](../04-gold-summary-table/option-1-function.md).
 
 ## Wire it up
 
 1. Open a **KQL Queryset** on the `DepositMovement` database.
-2. Paste the source query (Activator tracks state per `Object_Id = Scope`):
+2. Paste the source query (Activator tracks state per `Object_Id = Scope|IndicatorKey`):
    ```kql
    Gold_EarlyWarning()
-   // all 3 scopes; filter/threshold columns arrive with each row
+   // long: one row per Scope x bucket x indicator, each with Value + Alert_Level
    ```
-3. Toolbar → **Add alert** (Set alert) → save into an Activator item, e.g. `act-ewi-alerts`.
+3. Toolbar → **Add alert** (Set alert) → save into an Activator item, e.g. `act-deposit-ewi`.
 4. Open the Activator item and build rules:
-   - **Filter**: `WindowCode`, `DayType`, `EventFlag` as needed.
-   - **Condition**: numeric threshold on an indicator column (e.g. `NetOutflow_MB <= -5500`).
-   - **Tier** with L1/L2/L3 (three conditions, or three rules with a `Changes` guard on the tier).
-5. Add actions (Email / Teams) per tier.
+   - **Object**: `Object_Id` (e.g. `TOTAL_BANK|NetOutflow_MB`).
+   - **Condition**: `Alert_Level` is one of `L2`, `L3` (or `Alert_Rank >= 2`).
+   - **Filter** (optional): a specific `IndicatorKey`, `WindowCode`, `DayType`, or `EventFlag`.
+5. Add actions (Email / Teams) with `Value` / `WindowCode` / `DayType` / `Alert_Level` as content.
 
 ## Examples
 
@@ -30,38 +30,42 @@ Gold **Option 1** deployed — base MV + function:
 
 Full script: [kql/10-ewi-example1-NetOutflow-TotalBank.kql](kql/10-ewi-example1-NetOutflow-TotalBank.kql).
 
-**Source query** — the latest 30-min bucket for **Total Bank**, exposing `NetOutflow_MB`:
+**Source query** — the latest 30-min bucket for **Total Bank**, Net Outflow, with its level:
 
 ```kql
 Gold_EarlyWarning()
-| where Scope == "TOTAL_BANK"
-| summarize arg_max(Bucket_Start, *) by Scope   // latest 30-min bucket
-| project Scope, Date_ICT, Bucket_Label, WindowCode, DayType, NetOutflow_MB
+| where Scope == "TOTAL_BANK" and IndicatorKey == "NetOutflow_MB"
+| summarize arg_max(Bucket_Start, *) by Object_Id   // latest 30-min bucket
+| project Object_Id, Scope, Date_ICT, Bucket_Label, WindowCode, DayType,
+          Value, L1, L2, L3, Alert_Level, Alert_Rank
 ```
 
-**Activator rule** — item `act-deposit-ewi`, rule `rule_NetOutflow_MB_alert`; threshold
-`NetOutflow_MB` directly (single editable constant):
-- **Object**: `Scope` (here `TOTAL_BANK`).
-- **Condition**: `NetOutflow_MB` **≤** `<value>` (e.g. `-5500` for −5500 MB; more negative = worse).
-- **Tier (optional)**: add L1/L2/L3 as three rules with different values.
-- **Actions**: Email / Teams with `NetOutflow_MB` / `WindowCode` / `DayType` as dynamic content.
+**Activator rule** — item `act-deposit-ewi`, rule `rule_NetOutflow_MB_alert`:
+- **Object**: `Object_Id` (here `TOTAL_BANK|NetOutflow_MB`).
+- **Condition**: `Alert_Level` **is one of** `L2`, `L3` (or `Alert_Rank >= 2`).
+- **Actions**: Email / Teams with `Value` / `WindowCode` / `DayType` / `Alert_Level` as content.
 
-> **Window × day-type thresholds:** a single numeric condition can't vary the value by
-> `WindowCode` / `DayType`. When those matter (e.g. −3500 morning vs −3000 before-hours), use
-> the **optional tiered block** in the same script — a small threshold `datatable` resolves the
-> value per row and emits an `Alert_Flag` (L0–L3) that one rule watches (`Changes` +
-> `Alert_Flag != "L0_NORMAL"`). Edit a cell to retune; no rule change.
+> **Window × day-type thresholds are already applied.** The level comes from `EWI_AlertThreshold`
+> (per `Window × DayType`), so one rule covers every context. To retune, edit
+> [../04-gold-summary-table/data/ewi-alert-threshold.csv](../04-gold-summary-table/data/ewi-alert-threshold.csv),
+> re-run the melt script, and reload the table — no rule change.
 
 ### Example 2 — *(pending customer spec)*
 
 ## 30-minute digest
 
-Add a scheduled rule that formats `NetOutflow_Bn` (periodic) and `AccumNetOutflow_Bn`
-(cumulative from 00:00) into the message:
+Add a scheduled rule that formats the Net Outflow rows into the message (billions = `Value / 1000`):
+
+```kql
+Gold_EarlyWarning()
+| where Scope == "TOTAL_BANK" and IndicatorKey in ("NetOutflow_MB", "AccumNetOutflow_MB")
+| summarize arg_max(Bucket_Start, *) by Object_Id
+| extend Bn = round(Value / 1000.0, 2)   // MB -> billions
+```
 
 ```
-Periodic net outflow of {WindowStart}-{WindowEnd} = {NetOutflow_Bn} bn,
-Cumulative net outflow from 00:00 until {BucketEnd} = {AccumNetOutflow_Bn} bn
+Periodic net outflow of {WindowStart}-{WindowEnd} = {NetOutflow Bn} bn,
+Cumulative net outflow from 00:00 until {BucketEnd} = {AccumNetOutflow Bn} bn
 ```
 
 ## Notes

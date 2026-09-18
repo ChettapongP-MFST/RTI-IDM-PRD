@@ -1,69 +1,48 @@
 // ============================================================================
 // Production 09 - EWI Activator Example 1 (Option 1: source = Gold_EarlyWarning())
-// Indicator #2 Net Outflow - Scope = TOTAL_BANK, latest 30-min bucket, in MB.
+// Indicator #2 Net Outflow - Scope = TOTAL_BANK, latest 30-min bucket.
 // ----------------------------------------------------------------------------
-// Primary Activator source: the newest 30-min bucket for TOTAL_BANK, exposing
-// NetOutflow_MB (millions). Set the alert threshold on NetOutflow_MB directly in
-// Activator. An OPTIONAL window x day-type tiered version (threshold datatable +
-// Alert_Flag) is kept at the bottom for when window/day-type-specific thresholds
-// are needed.
+// Gold_EarlyWarning() emits LONG rows (one per Scope x bucket x indicator) and
+// already assigns Alert_Level (L0-L3) from the EWI_AlertThreshold reference table
+// (per Window x DayType). So Activator just watches Alert_Level - no thresholds
+// typed in the UI, and no per-window datatable needed here.
 //
 //   Activator item : act-deposit-ewi
 //   Rule name      : rule_NetOutflow_MB_alert
+//   Object         : Object_Id = "TOTAL_BANK|NetOutflow_MB"
 //
-// Run in the DepositMovement KQL database; use the primary block as the source.
+// Run in the DepositMovement KQL database; use this block as the source.
 // ============================================================================
 
 Gold_EarlyWarning()
-| where Scope == "TOTAL_BANK"
-| summarize arg_max(Bucket_Start, *) by Scope       // latest 30-min bucket
-| project Scope, Date_ICT, Bucket_Label, WindowCode, DayType, NetOutflow_MB
+| where Scope == "TOTAL_BANK" and IndicatorKey == "NetOutflow_MB"
+| summarize arg_max(Bucket_Start, *) by Object_Id     // latest 30-min bucket
+| project Object_Id, Scope, Date_ICT, Bucket_Label, WindowCode, DayType,
+          Value, L1, L2, L3, Alert_Level, Alert_Rank
 
 // ----------------------------------------------------------------------------
 // ACTIVATOR SETUP (Option 1 - KQL Queryset -> Add alert -> open Activator item)
 //   Activator item  : act-deposit-ewi
 //   Rule name       : rule_NetOutflow_MB_alert
-//   Object          : Scope  (here a single object "TOTAL_BANK")
-//   Condition       : NetOutflow_MB  ->  Numeric: is less than or equal to  <value>
-//                     (e.g. -5500 for -5500 MB; more negative = worse outflow)
-//   Tier (optional) : add L1/L2/L3 as three rules, each with a different <value>
-//   Actions         : Email / Teams, with NetOutflow_MB / WindowCode / DayType as
-//                     dynamic content in the message
+//   Object          : Object_Id  (here "TOTAL_BANK|NetOutflow_MB")
+//   Condition       : Alert_Level  ->  is one of  "L2", "L3"
+//                     (or Alert_Rank >= 2 ; the level already encodes the
+//                      Window x DayType threshold from EWI_AlertThreshold)
+//   Actions         : Email / Teams, with Value / WindowCode / DayType /
+//                     Alert_Level as dynamic content in the message
 //   Evaluate every  : 30 minutes
 //
-// NOTE: a single numeric threshold does NOT vary by window/day type. For
-// window x day-type-specific thresholds, use the OPTIONAL tiered block below.
+// RETUNE: edit production/04-gold-summary-table/data/ewi-alert-threshold.csv,
+// re-run the melt script, then re-run kql/17-load-EWI_AlertThreshold.kql.
+// No rule change - the level recomputes from the new thresholds.
 // ----------------------------------------------------------------------------
 
-
-// ============================================================================
-// OPTIONAL - tiered by comparable-time window x day type (Total Bank).
-// Emits an Alert_Flag (L0..L3) so ONE Activator rule can watch it (fire on
-// 'Changes' + Alert_Flag != "L0_NORMAL"). Edit the datatable to retune.
-// L1 = customer numbers; L2 / L3 from the Total Bank tab.
-// ============================================================================
-// let NetOutflow_Thresholds_TotalBank = datatable(WindowCode: string, DayType: string, L1_Watch: real, L2_Warning: real, L3_Critical: real)
-// [
-//     "BEFORE_WORKING_HOUR",    "BUSINESS_DAY", -3000, -4000, -5000,
-//     "BEFORE_WORKING_HOUR",    "WEEKEND",      -2500, -3500, -4500,
-//     "BEFORE_WORKING_HOUR",    "HOLIDAY",      -2000, -3000, -4000,
-//     "MORNING_WORKING_HOUR",   "BUSINESS_DAY", -3500, -4500, -5500,
-//     "MORNING_WORKING_HOUR",   "WEEKEND",      -3000, -4000, -5000,
-//     "MORNING_WORKING_HOUR",   "HOLIDAY",      -2500, -3500, -4500,
-//     "AFTERNOON_WORKING_HOUR", "BUSINESS_DAY", -3500, -4500, -5500,
-//     "AFTERNOON_WORKING_HOUR", "WEEKEND",      -3000, -4000, -5000,
-//     "AFTERNOON_WORKING_HOUR", "HOLIDAY",      -2500, -3500, -4500,
-//     "AFTER_WORKING_HOUR",     "BUSINESS_DAY", -3000, -4000, -5000,
-//     "AFTER_WORKING_HOUR",     "WEEKEND",      -2500, -3500, -4500,
-//     "AFTER_WORKING_HOUR",     "HOLIDAY",      -2000, -3000, -4000,
-// ];
+// ----------------------------------------------------------------------------
+// Optional: watch ALL indicators for TOTAL_BANK at once (one row per indicator).
+// Object = Object_Id (= Scope|IndicatorKey); rule fires on Alert_Level in (L2,L3).
+// ----------------------------------------------------------------------------
 // Gold_EarlyWarning()
 // | where Scope == "TOTAL_BANK"
-// | lookup kind=leftouter NetOutflow_Thresholds_TotalBank on WindowCode, DayType
-// | extend Alert_Flag = case(
-//     NetOutflow_MB <= L3_Critical, "L3_CRITICAL",
-//     NetOutflow_MB <= L2_Warning,  "L2_WARNING",
-//     NetOutflow_MB <= L1_Watch,    "L1_WATCH",
-//     "L0_NORMAL")
-// | summarize arg_max(Bucket_Start, *) by Scope
-// | project Scope, Date_ICT, Bucket_Label, WindowCode, DayType, NetOutflow_MB, NetOutflow_Bn, Alert_Flag
+// | summarize arg_max(Bucket_Start, *) by Object_Id
+// | project Object_Id, Scope, IndicatorKey, Bucket_Label, WindowCode, DayType,
+//           Value, Alert_Level, Alert_Rank
