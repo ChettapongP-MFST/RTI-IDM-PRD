@@ -97,6 +97,9 @@ Transform_DepositMovementClassified()
     );
     // Note 9: Processing starts with the Bronze rows supplied to this function.
     DepositMovement
+    // Note 9b: Normalize Channel - source can carry leading/trailing whitespace,
+    // which breaks exact matches (MSYG/SYSG exclusion, IsRetail, Channel_Group).
+    | extend Channel = trim(@"\s", tostring(Channel))
     // Note 10: Date is interpreted as Bangkok local calendar time. Time stores
     // an interval, so only its HH:mm start value is extracted for classification.
     | extend
