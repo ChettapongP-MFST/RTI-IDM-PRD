@@ -1,63 +1,83 @@
 // ============================================================================
-// Production 04 - Gold EWI verification. Run in the DepositMovement KQL database.
-// Replace datetime(2026-06-01) with a business date that exists in your Silver
-// data (e.g. a generated mock date), or call Gold_EarlyWarning() for today (ICT).
+// Production 04 - Gold EWI verification (self-contained function, long output).
+// Run in the DepositMovement KQL database. Replace datetime(2026-06-01) with a
+// business date that exists in your Silver data, or omit for today (ICT).
 // ============================================================================
 
 // 1. Objects exist.
-.show materialized-view mv_EarlyWarning_Base
 .show function Gold_EarlyWarning
+.show table EWI_AlertThreshold
+.show table DepositMovementEarlyWarning
 
-// 2. Base MV grain: exactly one row per (Date, Bucket, IsRetail). Expected: no rows.
-mv_EarlyWarning_Base
-| summarize c = count() by LocalDate, BucketStart, IsRetail
+// 2. Threshold table sanity: 288 rows total, 96 per scope. Expected: 3 rows of 96.
+EWI_AlertThreshold
+| summarize Rows = count() by Scope
+
+// 3. Long grain: exactly one row per (Object_Id, Bucket_Start, IndicatorId). Expected: no rows.
+Gold_EarlyWarning(datetime(2026-06-01))
+| summarize c = count() by Object_Id, Bucket_Start, IndicatorId
 | where c > 1
 
-// 3. Base view reconciles with Silver (channel-excluded) for one date. Expected: no rows.
+// 4. Every bucket has 24 rows = 3 scopes x 8 indicators. Expected: no rows.
+Gold_EarlyWarning(datetime(2026-06-01))
+| summarize Rows = count() by Bucket_Start
+| where Rows != 24
+
+// 5. Silver reconciliation: TOTAL_BANK periodic net (sum of NetOutflow_MB across
+// buckets) equals Silver net (channel-excluded) for the date. Expected: no rows.
 let _d = datetime(2026-06-01);
 let _silverNet = toscalar(
     DepositMovementClassified
     | where LocalDate == _d and isnotnull(LocalDateTime) and Channel !in ("MSYG", "SYSG")
-    | summarize sum(Net_Amount));
-let _baseNet = toscalar(
-    mv_EarlyWarning_Base | where LocalDate == _d | summarize sum(Net));
-print SilverNet = _silverNet, BaseNet = _baseNet, Diff = _baseNet - _silverNet
-| where Diff != decimal(0)
-
-// 4. Preview one date across all scopes.
-Gold_EarlyWarning(datetime(2026-06-01))
-| order by Scope asc, Bucket_Start asc
-
-// 5. Three scopes present for every bucket. Expected: no rows.
-Gold_EarlyWarning(datetime(2026-06-01))
-| summarize Scopes = dcount(Scope) by Bucket_Label
-| where Scopes != 3
+    | summarize sum(Net_Amount)) / 1000000.0;
+let _goldNet = toscalar(
+    Gold_EarlyWarning(_d)
+    | where Scope == "TOTAL_BANK" and IndicatorKey == "NetOutflow_MB"
+    | summarize sum(Value));
+print SilverNet_MB = _silverNet, GoldNet_MB = _goldNet, Diff = round(_goldNet - _silverNet, 2)
+| where abs(Diff) > 0.01
 
 // 6. Retails + Non-Retails cluster shares sum to ~100% per bucket (draining periods).
 // Expected: no rows.
 Gold_EarlyWarning(datetime(2026-06-01))
-| where Scope in ("RETAILS", "NON_RETAILS") and isnotnull(ClusterShare_Pct)
-| summarize TotalShare = round(sum(ClusterShare_Pct), 1) by Bucket_Label
+| where IndicatorKey == "ClusterShare_Pct" and Scope in ("RETAILS", "NON_RETAILS") and isnotnull(Value)
+| summarize TotalShare = round(sum(Value), 1) by Bucket_Start
 | where TotalShare != 100.0
 
-// 7. Accumulated net outflow reconciles with the running sum of periodic net.
-// For TOTAL_BANK, AccumNetOutflow delta must equal the bucket NetOutflow. Expected: no rows.
-Gold_EarlyWarning(datetime(2026-06-01))
-| where Scope == "TOTAL_BANK"
+// 7. Accum reconciliation: for TOTAL_BANK the AccumNetOutflow delta between
+// consecutive buckets equals the bucket NetOutflow. Expected: no rows.
+let _accum = Gold_EarlyWarning(datetime(2026-06-01))
+    | where Scope == "TOTAL_BANK" and IndicatorKey == "AccumNetOutflow_MB"
+    | project Bucket_Start, Accum = Value;
+let _net = Gold_EarlyWarning(datetime(2026-06-01))
+    | where Scope == "TOTAL_BANK" and IndicatorKey == "NetOutflow_MB"
+    | project Bucket_Start, Net = Value;
+_accum
+| join kind=inner _net on Bucket_Start
 | order by Bucket_Start asc
 | serialize
-| extend Delta = round(AccumNetOutflow_MB - prev(AccumNetOutflow_MB), 2)
-| where isnotnull(prev(AccumNetOutflow_MB)) and Delta != round(NetOutflow_MB, 2)
-| project Bucket_Label, NetOutflow_MB, AccumNetOutflow_MB, Delta
+| extend Delta = round(Accum - prev(Accum), 2)
+| where isnotnull(prev(Accum)) and Delta != round(Net, 2)
+| project Bucket_Start, Net, Accum, Delta
 
-// 8. Velocity (N=4) and digest columns for TOTAL_BANK, for review.
+// 8. Alert_Level integrity: only L0-L3, and Alert_Rank matches. Expected: no rows.
 Gold_EarlyWarning(datetime(2026-06-01))
-| where Scope == "TOTAL_BANK"
-| project Bucket_Label, DebitTxnCount_M, Velocity_X, AvgDebitAmount_KThb, NetOutflow_Bn, AccumNetOutflow_Bn
-| order by Bucket_Label asc
+| where Alert_Level !in ("L0", "L1", "L2", "L3")
+    or Alert_Rank != case(Alert_Level == "L3", 3, Alert_Level == "L2", 2, Alert_Level == "L1", 1, 0)
 
-// 9. Expanding velocity variant (N=0) runs without error, for comparison.
+// 9. Threshold coverage: every emitted row matched a threshold row (Direction not
+// null). Expected: no rows (the 288-row table covers all combinations).
+Gold_EarlyWarning(datetime(2026-06-01))
+| where isnull(Direction)
+| summarize Missing = count() by Scope, IndicatorKey, WindowCode, DayType
+
+// 10. Level distribution for review (how many rows at each level).
+Gold_EarlyWarning(datetime(2026-06-01))
+| summarize Rows = count() by IndicatorKey, Alert_Level
+| order by IndicatorKey asc, Alert_Level asc
+
+// 11. Expanding velocity variant (N=0) runs without error, for comparison.
 Gold_EarlyWarning(datetime(2026-06-01), 0)
-| where Scope == "TOTAL_BANK"
-| project Bucket_Label, DebitTxnCount_M, Velocity_X
+| where Scope == "TOTAL_BANK" and IndicatorKey == "Velocity_X"
+| project Bucket_Label, Value, Alert_Level
 | order by Bucket_Label asc
