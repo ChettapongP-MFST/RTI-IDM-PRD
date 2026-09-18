@@ -10,16 +10,21 @@ plus a 30-minute net-outflow digest.
 
 ---
 
-## Source — `Gold_EarlyWarning()` (reads the auto-refreshing MV)
+## Source — two options (match the Gold architecture)
 
 Activator consumes the Gold EWI rows — one row per **Scope × 30-min bucket × indicator**, each
 carrying its `Value` and an assigned **`Alert_Level`** (L0–L3) from the `EWI_AlertThreshold`
-reference table. The source query is the **`Gold_EarlyWarning()` function**, which reads the
-auto-refreshing base MV `mv_DepositMovementEarlyWarning` and computes the level on read.
-**Set the Activator to run the query every 30 minutes** — no scheduler, pipeline, or stored table.
+reference table. There are two ways to provide that source, matching the Gold
+[architecture options](../04-gold-summary-table/README.md#architecture-options):
 
-**Wiring & example:** [option-1-function.md](option-1-function.md) and
-[kql/10-ewi-example1-NetOutflow-TotalBank.kql](kql/10-ewi-example1-NetOutflow-TotalBank.kql).
+| | Source | Page |
+| --- | --- | --- |
+| **Option 1** | the `Gold_EarlyWarning()` **function** (KQL Queryset, run on schedule) | [option-1-function.md](option-1-function.md) |
+| **Option 3** | the `DepositMovementEarlyWarning` **table** (populated every 30 min) | [option-3-snapshot-table.md](option-3-snapshot-table.md) |
+
+- **Option 1** — simplest; alerting only, no history.
+- **Option 3** — Activator reads a stored table; also powers Power BI dashboards, backtesting,
+  and percentile calibration.
 
 ---
 
@@ -68,8 +73,8 @@ stay `L0` until the customer supplies numbers.
 
 ## Deployment
 
-1. Deploy the Gold layer — [Production 04](../04-gold-summary-table/) (reference table + base MV
-   `mv_DepositMovementEarlyWarning` + `Gold_EarlyWarning()` function).
-2. Wire Activator to `Gold_EarlyWarning()` — [option-1-function.md](option-1-function.md); set the
-   query to run **every 30 minutes**.
+1. Deploy the Gold layer — [Production 04](../04-gold-summary-table/) (core + your chosen option).
+2. Wire Activator for that option:
+   - Option 1 → [option-1-function.md](option-1-function.md)
+   - Option 3 → [option-3-snapshot-table.md](option-3-snapshot-table.md)
 3. Add the 30-minute digest rule.

@@ -1,0 +1,44 @@
+// ============================================================================
+// Production 04 - Gold EWI append (idempotent). Run every 30 minutes (Option 3).
+// ----------------------------------------------------------------------------
+// The Data Flow (Fabric Data Pipeline + Notebook) runs Gold_EarlyWarning() for
+// today (ICT) and appends only the rows not already stored in
+// DepositMovementEarlyWarning. Grain is Scope x bucket x indicator, so the
+// idempotency key is Object_Id (= Scope|IndicatorKey) + bucket. Re-running the
+// same cycle adds nothing; a late bucket is picked up on the next run.
+//
+// SCHEDULING: window functions (cumulative / velocity / jump) mean this cannot be
+// a materialized view / update policy. Schedule every 30 minutes with a Fabric
+// Data Pipeline that invokes a Notebook executing the .set-or-append below - the
+// same scheduled-pipeline pattern as Production 07 (interval scheduler).
+//
+// Run / verify manually in the DepositMovement KQL database.
+// ============================================================================
+
+.set-or-append DepositMovementEarlyWarning <|
+    let _today = startofday(now() + 7h);
+    let _existing = toscalar(
+        DepositMovementEarlyWarning
+        | where Bucket_Start >= _today
+        | summarize make_set(strcat(Object_Id, "|", format_datetime(Bucket_Start, "yyyy-MM-dd HH:mm"))));
+    Gold_EarlyWarning()
+    | where not(set_has_element(_existing, strcat(Object_Id, "|", format_datetime(Bucket_Start, "yyyy-MM-dd HH:mm"))))
+
+// ----------------------------------------------------------------------------
+// Optional: backfill history for a specific past date. Idempotent per
+// (Object_Id, bucket) for that date. Uncomment and set the date.
+// ----------------------------------------------------------------------------
+// .set-or-append DepositMovementEarlyWarning <|
+//     let _d = datetime(2026-06-01);
+//     let _existing = toscalar(
+//         DepositMovementEarlyWarning
+//         | where Date_ICT == format_datetime(_d, "yyyy-MM-dd")
+//         | summarize make_set(strcat(Object_Id, "|", format_datetime(Bucket_Start, "yyyy-MM-dd HH:mm"))));
+//     Gold_EarlyWarning(_d)
+//     | where not(set_has_element(_existing, strcat(Object_Id, "|", format_datetime(Bucket_Start, "yyyy-MM-dd HH:mm"))))
+
+// ----------------------------------------------------------------------------
+// Verify latest stored bucket per scope after a run.
+// ----------------------------------------------------------------------------
+// DepositMovementEarlyWarning
+// | summarize LatestBucket = max(Bucket_Start), Rows = count() by Scope
