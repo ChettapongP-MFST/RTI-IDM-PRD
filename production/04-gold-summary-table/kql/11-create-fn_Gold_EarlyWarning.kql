@@ -1,11 +1,11 @@
 // ============================================================================
 // Production 04 - Gold EWI function: Gold_EarlyWarning(TargetDate, VelocityN)
 // ----------------------------------------------------------------------------
-// Rolls mv_EarlyWarning_Base up to the 3 scopes (Total Bank / Retails /
-// Non-Retails) and computes all 8 Early Warning Indicators for ONE business
-// date. Emits one row per Scope x 30-minute bucket, shaped for Data Activator:
-// every dimension is a filter column and every indicator is a numeric column,
-// so thresholds and WindowCode/DayType filters are set in Activator.
+// Self-contained: aggregates Silver DepositMovementClassified directly (no MV),
+// rolls up to the 3 scopes (Total Bank / Retails / Non-Retails), computes all 8
+// Early Warning Indicators for ONE business date, then joins EWI_AlertThreshold
+// to assign Alert_Level (L0-L3). Emits LONG output: one row per
+// Scope x 30-minute bucket x indicator, with Value + matched L1/L2/L3 + level.
 //
 // Run in the KQL Database "DepositMovement".
 //
@@ -18,23 +18,35 @@
 //   3 Accum Net Outflow= running sum(Net) from 00:00               -> MB
 //   4 Debit Txn Count  = sum(Debit_Transaction)                    -> Million
 //   5 Velocity         = DebitTxn / avg(prior N buckets)           -> ratio (X)
-//   6 Avg Debit Amount = GrossOutflow / DebitTxn                   -> K THB
+//   6 Avg Debit Amount = GrossOutflow / DebitTxn                   -> MB
 //   7 Cluster Share    = cluster outflow / total cluster outflow   -> % (0-100)
 //   8 Sudden Share Jump= ClusterShare(now) - ClusterShare(prior)   -> pp
 // ============================================================================
 
 .create-or-alter function with (
-    docstring = "Gold Early Warning Indicators per Scope x 30-min bucket for Data Activator",
+    docstring = "Gold EWI (self-contained) per Scope x 30-min bucket x indicator with Alert_Level from EWI_AlertThreshold",
     folder = "Gold"
 )
 Gold_EarlyWarning(TargetDate: datetime = datetime(null), VelocityN: int = 4)
 {
     let _target = iff(isnull(TargetDate), startofday(now() + 7h), startofday(TargetDate));
+    // Self-contained aggregation of Silver (folds in the former mv_EarlyWarning_Base):
+    // exclude MSYG/SYSG, tag IsRetail, bin to 30-min, periodic sums per bucket x IsRetail.
+    let base =
+        DepositMovementClassified
+        | where LocalDate == _target
+        | where isnotnull(LocalDateTime)
+        | where Channel !in ("MSYG", "SYSG")
+        | extend IsRetail = Channel in ("ENET", "ATM", "CDM"), BucketStart = bin(LocalDateTime, 30m)
+        | summarize
+            GrossOutflow = sum(Debit_Amount),
+            Net          = sum(Net_Amount),
+            DebitTxn     = sum(Debit_Transaction)
+            by LocalDate, BucketStart, DayClassification, EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail;
     // Per-bucket cross-scope aggregates (Retails vs Non-Retails); cluster shares
     // need both clusters side by side, so compute them here before fan-out.
     let perBucket =
-        mv_EarlyWarning_Base
-        | where LocalDate == _target
+        base
         | summarize
             Gross_R  = sumif(GrossOutflow, IsRetail),
             Gross_NR = sumif(GrossOutflow, not(IsRetail)),
@@ -59,58 +71,93 @@ Gold_EarlyWarning(TargetDate: datetime = datetime(null), VelocityN: int = 4)
           ( perBucket | extend Scope = "TOTAL_BANK",  GrossOutflow = todouble(Gross_T),  NetOutflow = todouble(Net_T),  DebitTxn = Txn_T,  ClusterShare_Pct = real(null) ),
           ( perBucket | extend Scope = "RETAILS",     GrossOutflow = todouble(Gross_R),  NetOutflow = todouble(Net_R),  DebitTxn = Txn_R,  ClusterShare_Pct = Share_R ),
           ( perBucket | extend Scope = "NON_RETAILS", GrossOutflow = todouble(Gross_NR), NetOutflow = todouble(Net_NR), DebitTxn = Txn_NR, ClusterShare_Pct = Share_NR );
-    scopeRows
-    | order by Scope asc, BucketStart asc
-    | extend _restart = (Scope != prev(Scope))
-    // #3 Accumulated net outflow from 00:00, reset per scope.
-    | extend AccumNet = row_cumsum(NetOutflow, _restart)
-    // #5 Velocity. Fixed N: average of the prior 4 buckets (same scope). Expanding
-    // (VelocityN = 0): average of all prior buckets that day.
-    | extend _expSum   = row_cumsum(DebitTxn, _restart) - DebitTxn
-    | extend _expCount = row_cumsum(1, _restart) - 1
-    | extend _fixSum   = prev(DebitTxn, 1) + prev(DebitTxn, 2) + prev(DebitTxn, 3) + prev(DebitTxn, 4)
-    | extend _has4Prior = (prev(Scope, 4) == Scope)
-    | extend AvgPrior = iff(
-        VelocityN == 0,
-        iff(_expCount > 0, todouble(_expSum) / _expCount, real(null)),
-        iff(_has4Prior, todouble(_fixSum) / 4.0, real(null)))
-    | extend Velocity = iff(isnull(AvgPrior) or AvgPrior == 0, real(null), todouble(DebitTxn) / AvgPrior)
-    // #8 Sudden share jump vs the prior 30-min bucket of the same scope.
-    | extend ShareJump_Pct = iff(Scope == prev(Scope), ClusterShare_Pct - prev(ClusterShare_Pct), real(null))
-    // Comparable-time window from the bucket start (independent of the Silver variant).
-    | extend _tod = BucketStart - startofday(BucketStart)
-    | extend WindowCode = case(
-        _tod < timespan(08:30:00), "BEFORE_WORKING_HOUR",
-        _tod < timespan(12:00:00), "MORNING_WORKING_HOUR",
-        _tod < timespan(17:30:00), "AFTERNOON_WORKING_HOUR",
-        "AFTER_WORKING_HOUR")
-    | extend WindowName = case(
-        _tod < timespan(08:30:00), "before working hour",
-        _tod < timespan(12:00:00), "morning working hour",
-        _tod < timespan(17:30:00), "afternoon working hour",
-        "after working hour")
-    | extend _bEnd = BucketStart + 30m
+    let wide =
+        scopeRows
+        | order by Scope asc, BucketStart asc
+        | extend _restart = (Scope != prev(Scope))
+        // #3 Accumulated net outflow from 00:00, reset per scope.
+        | extend AccumNet = row_cumsum(NetOutflow, _restart)
+        // #5 Velocity. Fixed N: average of the prior 4 buckets (same scope). Expanding
+        // (VelocityN = 0): average of all prior buckets that day.
+        | extend _expSum   = row_cumsum(DebitTxn, _restart) - DebitTxn
+        | extend _expCount = row_cumsum(1, _restart) - 1
+        | extend _fixSum   = prev(DebitTxn, 1) + prev(DebitTxn, 2) + prev(DebitTxn, 3) + prev(DebitTxn, 4)
+        | extend _has4Prior = (prev(Scope, 4) == Scope)
+        | extend AvgPrior = iff(
+            VelocityN == 0,
+            iff(_expCount > 0, todouble(_expSum) / _expCount, real(null)),
+            iff(_has4Prior, todouble(_fixSum) / 4.0, real(null)))
+        | extend Velocity = iff(isnull(AvgPrior) or AvgPrior == 0, real(null), todouble(DebitTxn) / AvgPrior)
+        // #8 Sudden share jump vs the prior 30-min bucket of the same scope.
+        | extend ShareJump_Pct = iff(Scope == prev(Scope), ClusterShare_Pct - prev(ClusterShare_Pct), real(null))
+        // Comparable-time window from the bucket start.
+        | extend _tod = BucketStart - startofday(BucketStart)
+        | extend WindowCode = case(
+            _tod < timespan(08:30:00), "BEFORE_WORKING_HOUR",
+            _tod < timespan(12:00:00), "MORNING_WORKING_HOUR",
+            _tod < timespan(17:30:00), "AFTERNOON_WORKING_HOUR",
+            "AFTER_WORKING_HOUR")
+        | extend WindowName = case(
+            _tod < timespan(08:30:00), "before working hour",
+            _tod < timespan(12:00:00), "morning working hour",
+            _tod < timespan(17:30:00), "afternoon working hour",
+            "after working hour")
+        | extend _bEnd = BucketStart + 30m
+        | project
+            Scope,
+            LocalDate,
+            BucketStart,
+            Bucket_Label = strcat(format_datetime(BucketStart, "HH:mm"), "-", format_datetime(_bEnd, "HH:mm")),
+            WindowCode, WindowName,
+            DayType = DayClassification,
+            EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend,
+            GrossOutflow_MB    = GrossOutflow / 1000000.0,
+            NetOutflow_MB      = NetOutflow / 1000000.0,
+            AccumNetOutflow_MB = AccumNet / 1000000.0,
+            DebitTxnCount_M    = DebitTxn / 1000000.0,
+            Velocity_X         = Velocity,
+            AvgDebitAmount_MB  = iff(DebitTxn > 0, (GrossOutflow / DebitTxn) / 1000000.0, real(null)),
+            ClusterShare_Pct,
+            ShareJump_Pct;
+    // Unpivot the 8 indicators to long form (one row per Scope x bucket x indicator).
+    let melted =
+        union
+          ( wide | extend IndicatorKey = "GrossOutflow_MB",    IndicatorName = "Gross Outflow",        Unit = "MB",      Value = GrossOutflow_MB ),
+          ( wide | extend IndicatorKey = "NetOutflow_MB",      IndicatorName = "Net Outflow",          Unit = "MB",      Value = NetOutflow_MB ),
+          ( wide | extend IndicatorKey = "AccumNetOutflow_MB", IndicatorName = "Accum Net Outflow",    Unit = "MB",      Value = AccumNetOutflow_MB ),
+          ( wide | extend IndicatorKey = "DebitTxnCount_M",    IndicatorName = "Debit Txn Count",      Unit = "Million", Value = DebitTxnCount_M ),
+          ( wide | extend IndicatorKey = "Velocity_X",         IndicatorName = "Transaction Velocity", Unit = "X",       Value = Velocity_X ),
+          ( wide | extend IndicatorKey = "AvgDebitAmount_MB",  IndicatorName = "Average Debit Amount", Unit = "MB",      Value = AvgDebitAmount_MB ),
+          ( wide | extend IndicatorKey = "ClusterShare_Pct",   IndicatorName = "Cluster Share",        Unit = "%",       Value = ClusterShare_Pct ),
+          ( wide | extend IndicatorKey = "ShareJump_Pct",      IndicatorName = "Sudden Share Jump",    Unit = "pp",      Value = ShareJump_Pct );
+    melted
+    // Attach the L1/L2/L3 amounts + Direction for this Scope x Indicator x Window x DayType.
+    | lookup kind=leftouter EWI_AlertThreshold on Scope, IndicatorKey, WindowCode, DayType
+    // Assign the level, honouring direction; blank thresholds (null) are skipped.
+    | extend Alert_Level = case(
+        isnull(Value), "L0",
+        Direction == "LOW_IS_BAD",
+            case(isnotnull(L3) and Value <= L3, "L3",
+                 isnotnull(L2) and Value <= L2, "L2",
+                 isnotnull(L1) and Value <= L1, "L1", "L0"),
+            case(isnotnull(L3) and Value >= L3, "L3",
+                 isnotnull(L2) and Value >= L2, "L2",
+                 isnotnull(L1) and Value >= L1, "L1", "L0"))
+    | extend Alert_Rank = case(Alert_Level == "L3", 3, Alert_Level == "L2", 2, Alert_Level == "L1", 1, 0)
     | project
-        Object_Id           = Scope,
-        Date_ICT            = format_datetime(LocalDate, "yyyy-MM-dd"),
-        Bucket_Start        = BucketStart,
-        Bucket_Label        = strcat(format_datetime(BucketStart, "HH:mm"), "-", format_datetime(_bEnd, "HH:mm")),
-        Alert_Time          = now() + 7h,
+        Object_Id     = strcat(Scope, "|", IndicatorKey),   // Activator identity: per Scope x Indicator
         Scope,
+        Date_ICT      = format_datetime(LocalDate, "yyyy-MM-dd"),
+        Bucket_Start  = BucketStart,
+        Bucket_Label,
+        Alert_Time    = now() + 7h,
         WindowCode, WindowName,
-        DayType             = DayClassification,
+        DayType,
         EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend,
-        GrossOutflow_MB     = GrossOutflow / 1000000.0,
-        NetOutflow_MB       = NetOutflow / 1000000.0,
-        AccumNetOutflow_MB  = AccumNet / 1000000.0,
-        DebitTxnCount_M     = DebitTxn / 1000000.0,
-        Velocity_X          = Velocity,
-        AvgDebitAmount_KThb = iff(DebitTxn > 0, (GrossOutflow / DebitTxn) / 1000.0, real(null)),
-        ClusterShare_Pct,
-        ShareJump_Pct,
-        NetOutflow_Bn       = NetOutflow / 1000000000.0,
-        AccumNetOutflow_Bn  = AccumNet / 1000000000.0
-    | order by Scope asc, Bucket_Start asc
+        IndicatorId, IndicatorKey, IndicatorName, Unit,
+        Value, Direction, L1, L2, L3,
+        Alert_Level, Alert_Rank
+    | order by Scope asc, Bucket_Start asc, IndicatorId asc
 }
 
 .show function Gold_EarlyWarning
