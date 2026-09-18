@@ -18,43 +18,39 @@ minutes**, one evaluated row per **Scope × Indicator** with an assigned **Alert
 Silver: DepositMovementClassified        row-level, classified (day type · event flags · window)
         │
         ▼
-Gold function: Gold_EarlyWarning()  ◄──  EWI_AlertThreshold   (reference table:
-        │   self-contained — reads Silver directly:     Scope × Indicator × Window × DayType
-        │   exclude MSYG/SYSG · tag IsRetail · bin 30-min   → L1/L2/L3)
-        │   roll up to 3 scopes · cumulative · velocity · cluster share · sudden jump
+mv_DepositMovementEarlyWarning (Gold MV)  additive per-bucket sums
+        │   AUTO-refreshes as Silver ingests (no pipeline / notebook / scheduler)
+        │   retention keeps history
+        ▼
+Gold_EarlyWarning()  ◄──  EWI_AlertThreshold   (reference: Scope × Indicator × Window × DayType)
+        │   reads the MV: roll up 3 scopes · cumulative · velocity · cluster share · sudden jump
         │   join value → L1/L2/L3 → assign Alert_Level (L0–L3)
         ▼
 one row per Scope × 30-min bucket × indicator  ·  Value + Alert_Level
-        │   30-min scheduled .set-or-append (idempotent)
+        │
         ▼
-DepositMovementEarlyWarning (Gold table)  ─►  Data Activator  +  Power BI
+Data Activator (runs Gold_EarlyWarning() every 30 min)  +  Power BI
 ```
 
-There is **no materialized view** — `Gold_EarlyWarning()` aggregates Silver directly (window
-functions such as cumulative / velocity / jump are not allowed in an MV but are fine in a
-function). The enriched rows are persisted to `DepositMovementEarlyWarning` by a 30-min scheduled
-append, and Data Activator + Power BI read that table.
-
-> *A function-only variant (Activator runs `Gold_EarlyWarning()` directly, no stored table) is
-> documented in [option-1-function.md](option-1-function.md) but is not the chosen path.*
+**The base MV auto-refreshes** as Silver ingests — no pipeline, notebook, or scheduler. The three
+window-function indicators (cumulative #3, velocity #5, sudden jump #8) and `Alert_Level` are not
+allowed in an MV, so `Gold_EarlyWarning()` computes them **on read** over the MV. History lives in
+the MV (retention below); the enriched rows are derived on demand, so there is no separate stored
+table and nothing to schedule.
 
 ---
 
-## Architecture (Option 3 — persisted table)
-
-The chosen path persists the enriched rows so **Activator and Power BI read a stored table**, and
-history is kept for dashboards, backtesting, and percentile calibration:
+## Architecture (MV + function — auto-refresh, no scheduler)
 
 | Object | Role |
 | --- | --- |
 | `EWI_AlertThreshold` (reference) | L1/L2/L3 per Scope × Indicator × Window × DayType |
-| `Gold_EarlyWarning()` (function) | self-contained; computes indicators + `Alert_Level` |
-| `DepositMovementEarlyWarning` (table) | persisted output, appended every 30 min |
-| Scheduler | Fabric pipeline + notebook running the idempotent append |
+| `mv_DepositMovementEarlyWarning` (materialized view) | additive per-bucket sums; **auto-refreshes** as Silver ingests; retains history |
+| `Gold_EarlyWarning()` (function) | reads the MV; computes window-function indicators + `Alert_Level` on read |
 
-Full steps: **[option-3-snapshot-table.md](option-3-snapshot-table.md)**. The Activator wiring is in
-[Production 09](../09-activator-alerts/). *(A function-only alternative exists in
-[option-1-function.md](option-1-function.md) but is not used.)*
+Data Activator runs `Gold_EarlyWarning()` on its 30-minute evaluation cadence, and Power BI queries
+the same function. No pipeline, notebook, scheduler, or stored output table. The Activator wiring is
+in [Production 09](../09-activator-alerts/).
 
 ---
 
@@ -333,10 +329,10 @@ indicator stays `L0` until the customer supplies numbers.
 indicator**, the `Value`, matched `L1/L2/L3`, and the resulting `Alert_Level` (L0–L3). Thresholds
 are no longer typed into Activator.
 
-**Persistence** — this is where the two [architecture options](#architecture-options) diverge:
-**Option 1** lets Activator run `Gold_EarlyWarning()` directly; **Option 3** stores these rows in
-`DepositMovementEarlyWarning` via a 30-min idempotent `.set-or-append` so Activator and Power BI
-read a table. See [option-1-function.md](option-1-function.md) / [option-3-snapshot-table.md](option-3-snapshot-table.md).
+**Refresh & history** — the base MV `mv_DepositMovementEarlyWarning` **auto-refreshes** as Silver
+ingests (no scheduler) and retains history per its retention policy. `Gold_EarlyWarning()` derives
+the enriched rows **on read**, so Activator and Power BI always see current data without a stored
+table.
 
 **Example Activator rule**
 > Object `TOTAL_BANK|NetOutflow_MB` · when `Alert_Level in ('L2','L3')` → alert.
@@ -366,24 +362,22 @@ Cumulative net outflow from 00:00 until 08:30 = xx.xx bn
 
 Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`).
 
-**Core:**
+**Deploy in order:**
 
 1. ⏳ **`EWI_AlertThreshold`** reference table — [kql/16-create-EWI_AlertThreshold.kql](kql/16-create-EWI_AlertThreshold.kql)
    (create + policies + CSV mapping) and [kql/17-load-EWI_AlertThreshold.kql](kql/17-load-EWI_AlertThreshold.kql)
    (load 288 rows from [data/ewi-alert-threshold.csv](data/ewi-alert-threshold.csv)). Retune by
    editing the CSV, re-running the melt script, and re-running kql/17.
-2. ⏳ **`Gold_EarlyWarning(TargetDate, VelocityN=4)`** — [kql/11-create-fn_Gold_EarlyWarning.kql](kql/11-create-fn_Gold_EarlyWarning.kql)
-   **Self-contained** — aggregates Silver directly (exclude `MSYG`/`SYSG`, tag `IsRetail`, bin
-   30-min), rolls up to the 3 scopes, computes all 8 indicators, **joins `EWI_AlertThreshold`**,
-   and assigns `Alert_Level` (L0–L3) per Scope × bucket × indicator. **No MV.**
-3. ⏳ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql).
+2. ⏳ **`mv_DepositMovementEarlyWarning`** base MV — [kql/10-create-mv_DepositMovementEarlyWarning.kql](kql/10-create-mv_DepositMovementEarlyWarning.kql)
+   Additive per-bucket sums on Silver (exclude `MSYG`/`SYSG`, tag `IsRetail`, bin 30-min). Created
+   `WITH (backfill=true)` → **auto-backfills and then auto-refreshes** as Silver ingests. Retention
+   `365d` keeps history.
+3. ⏳ **`Gold_EarlyWarning(TargetDate, VelocityN=4)`** — [kql/11-create-fn_Gold_EarlyWarning.kql](kql/11-create-fn_Gold_EarlyWarning.kql)
+   Reads the MV, rolls up to the 3 scopes, computes all 8 indicators, **joins `EWI_AlertThreshold`**,
+   and assigns `Alert_Level` (L0–L3) per Scope × bucket × indicator.
+4. ⏳ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql).
 
-**Persist + schedule (Option 3):**
-
-4. ⏳ **`DepositMovementEarlyWarning`** table — [kql/14-create-DepositMovementEarlyWarning.kql](kql/14-create-DepositMovementEarlyWarning.kql).
-5. ⏳ **Idempotent 30-min append** — [kql/15-append-DepositMovementEarlyWarning.kql](kql/15-append-DepositMovementEarlyWarning.kql), scheduled by a Fabric Data Pipeline + Notebook (module-07 pattern).
-
-**Activator:** [Production 09 — Activator Alerts](../09-activator-alerts/) *(⏳ wiring next)*.
+**Activator:** runs `Gold_EarlyWarning()` every 30 min — [Production 09 — Activator Alerts](../09-activator-alerts/) *(⏳ wiring next)*. No scheduler or stored table required.
 
 ---
 

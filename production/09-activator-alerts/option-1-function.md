@@ -1,13 +1,14 @@
-# Activator Option 1 — source = `Gold_EarlyWarning()` function
+# Activator — source = `Gold_EarlyWarning()` function
 
-Activator runs the function query on a schedule (the same "Add alert from a KQL Queryset"
-pattern as the legacy alert in [README_old.md](README_old.md)). No stored table. Parent:
-[EWI Activator README](README.md).
+Activator runs the function query **every 30 minutes** (the same "Add alert from a KQL Queryset"
+pattern as the legacy alert in [README_old.md](README_old.md)). The function reads the
+auto-refreshing base MV `mv_DepositMovementEarlyWarning`, so there is no stored table and nothing
+to schedule beyond the alert cadence. Parent: [EWI Activator README](README.md).
 
 ## Prerequisite
 
-Gold **Option 1** deployed — reference table + function:
-[../04-gold-summary-table/option-1-function.md](../04-gold-summary-table/option-1-function.md).
+Gold layer deployed — reference table + base MV + function:
+[../04-gold-summary-table/README.md#deployment-kql-scripts](../04-gold-summary-table/README.md).
 
 ## Wire it up
 

@@ -10,18 +10,16 @@ plus a 30-minute net-outflow digest.
 
 ---
 
-## Source — `DepositMovementEarlyWarning` table (Option 3)
+## Source — `Gold_EarlyWarning()` (reads the auto-refreshing MV)
 
 Activator consumes the Gold EWI rows — one row per **Scope × 30-min bucket × indicator**, each
 carrying its `Value` and an assigned **`Alert_Level`** (L0–L3) from the `EWI_AlertThreshold`
-reference table. The chosen path reads the persisted **`DepositMovementEarlyWarning`** table
-(populated every 30 min), which also powers Power BI dashboards, backtesting, and percentile
-calibration.
+reference table. The source query is the **`Gold_EarlyWarning()` function**, which reads the
+auto-refreshing base MV `mv_DepositMovementEarlyWarning` and computes the level on read.
+**Set the Activator to run the query every 30 minutes** — no scheduler, pipeline, or stored table.
 
-**Wiring:** [option-3-snapshot-table.md](option-3-snapshot-table.md).
-
-> *A function-only alternative (Activator runs `Gold_EarlyWarning()` directly, no stored table) is
-> documented in [option-1-function.md](option-1-function.md) but is not the chosen path.*
+**Wiring & example:** [option-1-function.md](option-1-function.md) and
+[kql/10-ewi-example1-NetOutflow-TotalBank.kql](kql/10-ewi-example1-NetOutflow-TotalBank.kql).
 
 ---
 
@@ -70,7 +68,8 @@ stay `L0` until the customer supplies numbers.
 
 ## Deployment
 
-1. Deploy the Gold layer — [Production 04](../04-gold-summary-table/) (reference table + function
-   + `DepositMovementEarlyWarning` + 30-min append).
-2. Wire Activator to the table — [option-3-snapshot-table.md](option-3-snapshot-table.md).
+1. Deploy the Gold layer — [Production 04](../04-gold-summary-table/) (reference table + base MV
+   `mv_DepositMovementEarlyWarning` + `Gold_EarlyWarning()` function).
+2. Wire Activator to `Gold_EarlyWarning()` — [option-1-function.md](option-1-function.md); set the
+   query to run **every 30 minutes**.
 3. Add the 30-minute digest rule.
