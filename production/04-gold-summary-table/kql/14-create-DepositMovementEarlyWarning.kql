@@ -41,5 +41,5 @@
 with (folder = "Gold")
 
 // Keep two years of intraday history for dashboards and calibration; cache 90 days hot.
-.alter table DepositMovementEarlyWarning policy retention softdelete = 730d recoverability = enabled
+.alter-merge table DepositMovementEarlyWarning policy retention softdelete = 730d recoverability = enabled
 .alter table DepositMovementEarlyWarning policy caching hot = 90d
