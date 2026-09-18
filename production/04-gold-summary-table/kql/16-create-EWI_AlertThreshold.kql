@@ -1,0 +1,34 @@
+// ============================================================================
+// Production 04 - Create the EWI alert-threshold reference table.
+// ----------------------------------------------------------------------------
+// One row per Scope x Indicator x WindowCode x DayType (288 rows = 3 x 8 x 4 x 3).
+// Gold_EarlyWarning() joins this table to assign Alert_Level (L0-L3) per indicator.
+// Retune a threshold by editing data/ewi-alert-threshold.csv, re-running the melt
+// script, and re-running 17-load-EWI_AlertThreshold.kql.
+//
+// Direction:  HIGH_IS_BAD -> breach when value >= Lx ;  LOW_IS_BAD -> value <= Lx.
+// Blank L1/L2/L3 (real(null)) -> that level is skipped (e.g. #7/#8 pending).
+//
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
+// ============================================================================
+
+.create-merge table EWI_AlertThreshold (
+    Scope:        string,
+    IndicatorId:  int,
+    IndicatorKey: string,
+    WindowCode:   string,
+    DayType:      string,
+    Direction:    string,
+    L1:           real,
+    L2:           real,
+    L3:           real
+)
+with (folder = "Reference")
+
+// Small, stable reference data: keep it fully cached and retained.
+.alter-merge table EWI_AlertThreshold policy retention softdelete = 3650d recoverability = enabled
+.alter table EWI_AlertThreshold policy caching hot = 3650d
+
+// Optional CSV ingestion mapping (header order of data/ewi-alert-threshold.csv).
+// .create-or-alter table EWI_AlertThreshold ingestion csv mapping 'EWI_AlertThreshold_mapping'
+// '[{"Column":"Scope","Properties":{"Ordinal":"0"}},{"Column":"IndicatorId","Properties":{"Ordinal":"1"}},{"Column":"IndicatorKey","Properties":{"Ordinal":"2"}},{"Column":"WindowCode","Properties":{"Ordinal":"3"}},{"Column":"DayType","Properties":{"Ordinal":"4"}},{"Column":"Direction","Properties":{"Ordinal":"5"}},{"Column":"L1","Properties":{"Ordinal":"6"}},{"Column":"L2","Properties":{"Ordinal":"7"}},{"Column":"L3","Properties":{"Ordinal":"8"}}]'
