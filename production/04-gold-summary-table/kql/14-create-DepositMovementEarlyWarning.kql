@@ -36,7 +36,8 @@
     L2:             real,
     L3:             real,
     Alert_Level:    string,
-    Alert_Rank:     int
+    Alert_Rank:     int,
+    Alert_Level_Name: string
 )
 with (folder = "Gold")
 

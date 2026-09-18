@@ -322,6 +322,7 @@ indicator stays `L0` until the customer supplies numbers.
 | `L1` `L2` `L3` | real | matched thresholds (from `EWI_AlertThreshold`) |
 | `Alert_Level` | string | `L0` / `L1` / `L2` / `L3` — **the alert signal** |
 | `Alert_Rank` | int | 0–3 (numeric level, for ordering / max) |
+| `Alert_Level_Name` | string | `Normal` (L0) / `Watch` (L1) / `Warning` (L2) / `Critical` (L3) |
 
 **Grain:** 3 scopes × 8 indicators × 48 buckets/day = 1 152 rows/day.
 `Object_Id = Scope|IndicatorKey`, so each scope-indicator is tracked independently by Activator.

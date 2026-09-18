@@ -144,6 +144,7 @@ Gold_EarlyWarning(TargetDate: datetime = datetime(null), VelocityN: int = 4)
                  isnotnull(L2) and Value >= L2, "L2",
                  isnotnull(L1) and Value >= L1, "L1", "L0"))
     | extend Alert_Rank = case(Alert_Level == "L3", 3, Alert_Level == "L2", 2, Alert_Level == "L1", 1, 0)
+    | extend Alert_Level_Name = case(Alert_Level == "L3", "Critical", Alert_Level == "L2", "Warning", Alert_Level == "L1", "Watch", "Normal")
     | project
         Object_Id     = strcat(Scope, "|", IndicatorKey),   // Activator identity: per Scope x Indicator
         Scope,
@@ -156,7 +157,7 @@ Gold_EarlyWarning(TargetDate: datetime = datetime(null), VelocityN: int = 4)
         EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend,
         IndicatorId, IndicatorKey, IndicatorName, Unit,
         Value, Direction, L1, L2, L3,
-        Alert_Level, Alert_Rank
+        Alert_Level, Alert_Rank, Alert_Level_Name
     | order by Scope asc, Bucket_Start asc, IndicatorId asc
 }
 
