@@ -36,6 +36,8 @@ Gold_EarlyWarning(TargetDate: datetime = datetime(null), VelocityN: int = 4)
         DepositMovementClassified
         | where LocalDate == _target
         | where isnotnull(LocalDateTime)
+        // Source Channel can carry leading/trailing whitespace; trim before matching.
+        | extend Channel = trim(@"\s", tostring(Channel))
         | where Channel !in ("MSYG", "SYSG")
         | extend IsRetail = Channel in ("ENET", "ATM", "CDM"), BucketStart = bin(LocalDateTime, 30m)
         | summarize
