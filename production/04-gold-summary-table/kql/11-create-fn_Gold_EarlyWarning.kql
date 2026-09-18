@@ -1,10 +1,10 @@
 // ============================================================================
 // Production 04 - Gold EWI function: Gold_EarlyWarning(TargetDate, VelocityN)
 // ----------------------------------------------------------------------------
-// Self-contained: aggregates Silver DepositMovementClassified directly (no MV),
-// rolls up to the 3 scopes (Total Bank / Retails / Non-Retails), computes all 8
-// Early Warning Indicators for ONE business date, then joins EWI_AlertThreshold
-// to assign Alert_Level (L0-L3). Emits LONG output: one row per
+// Reads the auto-refreshing base MV mv_DepositMovementEarlyWarning, rolls up to
+// the 3 scopes (Total Bank / Retails / Non-Retails), computes all 8 Early Warning
+// Indicators for ONE business date, then joins EWI_AlertThreshold to assign
+// Alert_Level (L0-L3). Emits LONG output: one row per
 // Scope x 30-minute bucket x indicator, with Value + matched L1/L2/L3 + level.
 //
 // Run in the KQL Database "DepositMovement".
@@ -24,25 +24,17 @@
 // ============================================================================
 
 .create-or-alter function with (
-    docstring = "Gold EWI (self-contained) per Scope x 30-min bucket x indicator with Alert_Level from EWI_AlertThreshold",
+    docstring = "Gold EWI per Scope x 30-min bucket x indicator with Alert_Level; reads mv_DepositMovementEarlyWarning + EWI_AlertThreshold",
     folder = "Gold"
 )
 Gold_EarlyWarning(TargetDate: datetime = datetime(null), VelocityN: int = 4)
 {
     let _target = iff(isnull(TargetDate), startofday(now() + 7h), startofday(TargetDate));
-    // Self-contained aggregation of Silver (folds in the former mv_EarlyWarning_Base):
-    // exclude MSYG/SYSG, tag IsRetail, bin to 30-min, periodic sums per bucket x IsRetail.
+    // Read the auto-refreshing base MV for the target date. The window-function
+    // indicators (cumulative / velocity / jump) and Alert_Level are added below.
     let base =
-        DepositMovementClassified
-        | where LocalDate == _target
-        | where isnotnull(LocalDateTime)
-        | where Channel !in ("MSYG", "SYSG")
-        | extend IsRetail = Channel in ("ENET", "ATM", "CDM"), BucketStart = bin(LocalDateTime, 30m)
-        | summarize
-            GrossOutflow = sum(Debit_Amount),
-            Net          = sum(Net_Amount),
-            DebitTxn     = sum(Debit_Transaction)
-            by LocalDate, BucketStart, DayClassification, EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail;
+        mv_DepositMovementEarlyWarning
+        | where LocalDate == _target;
     // Per-bucket cross-scope aggregates (Retails vs Non-Retails); cluster shares
     // need both clusters side by side, so compute them here before fan-out.
     let perBucket =

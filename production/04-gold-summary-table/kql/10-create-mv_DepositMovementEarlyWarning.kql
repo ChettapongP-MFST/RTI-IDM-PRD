@@ -1,0 +1,39 @@
+// ============================================================================
+// Production 04 - Gold EWI base materialized view: mv_DepositMovementEarlyWarning
+// ----------------------------------------------------------------------------
+// 30-minute PERIODIC additive aggregates on Silver DepositMovementClassified,
+// split by Retails vs Non-Retails, with channels MSYG / SYSG excluded. This is
+// the AUTO-REFRESHING, HISTORY-RETAINING base: Fabric materializes new Silver
+// extents continuously (no pipeline / notebook / scheduler).
+//
+// It is NOT the full EWI table - a materialized view cannot use window functions
+// (cumulative #3, velocity #5, sudden jump #8) or the threshold join. Those and
+// Alert_Level are computed on top at query time by Gold_EarlyWarning(), which
+// reads THIS view. Activator runs Gold_EarlyWarning() every 30 minutes.
+//
+// Run in the KQL Database "DepositMovement" (inside Eventhouse eh-rti-deposit).
+//
+// Grain : LocalDate x BucketStart(30m) x DayClassification x EventFlag x flags x IsRetail
+// Retail: Channel in ('ENET','ATM','CDM')  (configurable)
+// ============================================================================
+
+.create materialized-view with (backfill=true, folder="Gold") mv_DepositMovementEarlyWarning on table DepositMovementClassified
+{
+    DepositMovementClassified
+    | where isnotnull(LocalDateTime)
+    | where Channel !in ("MSYG", "SYSG")
+    | extend
+        IsRetail    = Channel in ("ENET", "ATM", "CDM"),
+        BucketStart = bin(LocalDateTime, 30m)
+    | summarize
+        GrossOutflow = sum(Debit_Amount),
+        Net          = sum(Net_Amount),
+        DebitTxn     = sum(Debit_Transaction),
+        UpdatedAtUtc = max(load_ts)
+        by LocalDate, BucketStart, DayClassification, EventFlag,
+           IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail
+}
+
+// Keep one year of intraday history and cache it hot (the view is small).
+.alter-merge materialized-view mv_DepositMovementEarlyWarning policy retention softdelete = 365d recoverability = enabled
+.alter materialized-view mv_DepositMovementEarlyWarning policy caching hot = 365d

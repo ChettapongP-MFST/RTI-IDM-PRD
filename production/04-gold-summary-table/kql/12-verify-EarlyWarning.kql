@@ -5,13 +5,18 @@
 // ============================================================================
 
 // 1. Objects exist.
+.show materialized-view mv_DepositMovementEarlyWarning
 .show function Gold_EarlyWarning
 .show table EWI_AlertThreshold
-.show table DepositMovementEarlyWarning
 
 // 2. Threshold table sanity: 288 rows total, 96 per scope. Expected: 3 rows of 96.
 EWI_AlertThreshold
 | summarize Rows = count() by Scope
+
+// 2b. Base MV grain: one row per (Date, Bucket, IsRetail). Expected: no rows.
+mv_DepositMovementEarlyWarning
+| summarize c = count() by LocalDate, BucketStart, IsRetail
+| where c > 1
 
 // 3. Long grain: exactly one row per (Object_Id, Bucket_Start, IndicatorId). Expected: no rows.
 Gold_EarlyWarning(datetime(2026-06-01))
