@@ -21,15 +21,19 @@ Silver: DepositMovementClassified        row-level, classified (day type · even
 Base MV (Gold): mv_EarlyWarning_Base      periodic sums per  Date × 30-min bucket × IsRetail
         │   roll up to 3 scopes · cumulative · velocity · cluster share · sudden jump
         ▼
-Gold function: Gold_EarlyWarning()        one row per  Scope × 30-min bucket · 8 indicators
+Gold function: Gold_EarlyWarning()  ◄──  EWI_AlertThreshold   (reference table:
+        │   join each value → L1/L2/L3          Scope × Indicator × Window × DayType → L1/L2/L3)
+        │   → assign Alert_Level (L0–L3)
+        ▼
+one row per Scope × 30-min bucket × indicator  ·  Value + Alert_Level
         │
         ├─ Option 1 ────────────────────────►  Data Activator runs the function
         │
         └─ Option 3 ─► [30-min append] ─► Gold_EarlyWarning_Snapshot ─► Activator + Power BI
 ```
 
-The base MV and function are **shared**; the two options differ only in how the enriched rows
-are consumed — see [Architecture options](#architecture-options).
+The base MV, function, and `EWI_AlertThreshold` reference table are **shared**; the two options
+differ only in how the enriched rows are consumed — see [Architecture options](#architecture-options).
 
 ---
 
@@ -99,12 +103,13 @@ These select **which threshold applies**; they do not change how an indicator is
 | `L2` | Warning | `P90 to < P95` |
 | `L3` | Critical | `P95 up` |
 
-> **Threshold model (confirmed):** the trigger compares each value to an **absolute Trigger
-> Amount** (THB) → L0–L3. Those amounts are **calibrated from historical percentiles**
-> (`P80/P90/P95` of the *same 30-min bucket, day type, and scope*) during a backtesting phase;
-> the **percentile rank stays as drill-down / methodology, not the primary KPI**. Phase 1 emits
-> the raw values and compares them against the amounts in Activator; the percentile calibration
-> is a downstream artifact.
+> **Threshold model (confirmed):** the L1/L2/L3 **absolute amounts** for every
+> `Scope × Indicator × Window × DayType` live in the **`EWI_AlertThreshold` reference table**
+> (loaded from [data/ewi-alert-threshold.csv](data/ewi-alert-threshold.csv)). `Gold_EarlyWarning`
+> **joins** each computed value to this table and assigns the **Alert Level** (L0–L3) in KQL — so
+> retuning a threshold is a **one-cell edit** in the reference table, not a code or Activator
+> change. The amounts are calibrated from historical percentiles (`P80/P90/P95` of the same
+> bucket × day type × scope); the percentile rank stays as drill-down methodology, not the KPI.
 
 ---
 
@@ -141,7 +146,7 @@ DebitTxn_b     = sum(Debit_Transaction)                   // count
 | 3 | Accum Net Outflow | Deposit outflow | MB | value **≤** threshold (negative) |
 | 4 | Debit Transaction Count | Traffic | Million | value **≥** threshold |
 | 5 | Transaction Velocity | Traffic | X (ratio) | value **≥** threshold |
-| 6 | Average Debit Amount | Large Value Movement | K THB | value **≥** threshold |
+| 6 | Average Debit Amount | Large Value Movement | MB | value **≥** threshold |
 | 7 | Cluster Share | Concentration | % (0–100) | value **≥** threshold *(numbers pending)* |
 | 8 | Sudden Share Jump | Concentration | pp | value **≥** threshold *(numbers pending)* |
 
@@ -207,11 +212,11 @@ Mean value per debit transaction — a **large-value-movement** signal (a few bi
 rather than many small ones).
 
 ```kql
-AvgDebit_KThb = iff(DebitTxn_b > 0, (GrossOutflow_b / DebitTxn_b) / 1000.0, real(null))
+AvgDebitAmount_MB = iff(DebitTxn_b > 0, (GrossOutflow_b / DebitTxn_b) / 1000000.0, real(null))
 ```
-- **Unit:** **K THB** per transaction (the average ticket rarely reaches millions, so the K scale is used, per the dashboard).
+- **Unit:** **MB** per transaction (matches the customer trigger sheet, `Average Debit Amount (MB)`).
 - **Detects:** unusually large average ticket size (institutional / high-value withdrawals).
-- **Breach:** `AvgDebit_KThb >= threshold`.
+- **Breach:** `AvgDebitAmount_MB >= threshold`.
 - **Guardrail:** `DebitTxn_b = 0` → `null` → Normal.
 
 ### 7. Cluster Share (Retails vs Non-Retails) — `Cluster net outflow ÷ total cluster outflow`
@@ -251,21 +256,47 @@ abrupt concentration shift before the absolute share is extreme.
 
 ---
 
-## Alerting model — Activator is the control surface
+## Alerting model — reference-table–driven levels
 
-The customer sets **thresholds** and **filters** directly in Data Activator, so the Gold
-layer does **not** assign tiers or store thresholds. Instead it emits a wide,
-Activator-friendly fact table: every **dimension** is a filter column and every **indicator**
-is a numeric column. Activator does the filtering and thresholding in its rules.
+Scope, thresholds, and criteria are **not** hard-coded and are **not** typed into Activator.
+They live in the **`EWI_AlertThreshold` reference table**, and `Gold_EarlyWarning` **joins** each
+computed indicator value to that table to assign the current **Alert Level** (L0–L3). Activator
+then reacts to the ready-made level (e.g. alert when `Alert_Level in ('L2','L3')`), or still
+thresholds a raw value directly if preferred.
 
-- **Filter in / out** by `Scope`, `WindowCode`, `DayType` (and event flags) → Activator property filters.
-- **Set / adjust a threshold** → a numeric condition on an indicator column, edited in the
-  Activator UI. Because each rule is already filtered to one context, its threshold is a
-  single editable constant.
+### `EWI_AlertThreshold` — the single threshold reference table
 
-> This **replaces** the earlier reference-table (`EarlyWarningThresholds`) approach. The Gold
-> table supports the full `Scope × Window × DayType` granularity; the customer creates only
-> the rules they actually monitor and types the L1/L2/L3 values in Activator.
+One row per `Scope × Indicator × Window × DayType`, loaded from
+[data/ewi-alert-threshold.csv](data/ewi-alert-threshold.csv) (**288 rows** = 3 scopes × 8
+indicators × 4 windows × 3 day types):
+
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `Scope` | string | `TOTAL_BANK` / `RETAILS` / `NON_RETAILS` |
+| `IndicatorId` | int | 1–8 |
+| `IndicatorKey` | string | matches the function's indicator column (e.g. `NetOutflow_MB`) |
+| `WindowCode` | string | comparable-time window |
+| `DayType` | string | `BUSINESS_DAY` / `WEEKEND` / `HOLIDAY` |
+| `Direction` | string | `HIGH_IS_BAD` (≥) or `LOW_IS_BAD` (≤, net-outflow) |
+| `L1` `L2` `L3` | real | Watch / Warning / Critical amounts (blank ⇒ level unused) |
+
+**Level derivation** (per matched row, honouring `Direction`):
+
+```kql
+Alert_Level = case(
+    Direction == "LOW_IS_BAD",
+        case(Value <= L3, "L3", Value <= L2, "L2", Value <= L1, "L1", "L0"),
+        case(Value >= L3, "L3", Value >= L2, "L2", Value >= L1, "L1", "L0"))
+```
+
+Retune a threshold with a **one-cell edit** in
+[data/ewi-alert-threshold.csv](data/ewi-alert-threshold.csv) → reload the table; no function or
+Activator change. Blank `L1/L2/L3` (e.g. #7 / #8 pending) ⇒ that level is skipped and the
+indicator stays `L0` until the customer supplies numbers.
+
+> This **restores a reference-table** approach: instead of typing L1/L2/L3 into Activator per
+> rule, the full `Scope × Indicator × Window × DayType` matrix is versioned in the repo and the
+> level is computed in KQL. Activator rules become simple — they watch `Alert_Level`.
 
 ### `Gold_EarlyWarning` — one row per Scope × 30-minute bucket
 
@@ -287,7 +318,7 @@ is a numeric column. Activator does the filtering and thresholding in its rules.
 | `AccumNetOutflow_MB` | real | indicator 3 — **threshold** |
 | `DebitTxnCount_M` | real | indicator 4 — **threshold** |
 | `Velocity_X` | real | indicator 5 — **threshold** |
-| `AvgDebitAmount_KThb` | real | indicator 6 — **threshold** |
+| `AvgDebitAmount_MB` | real | indicator 6 — **threshold** |
 | `ClusterShare_Pct` | real | indicator 7 — **threshold** (pending) |
 | `ShareJump_Pct` | real | indicator 8 — **threshold** (pending) |
 | `NetOutflow_Bn` | real | 30-min digest helper (billions) |
@@ -296,17 +327,22 @@ is a numeric column. Activator does the filtering and thresholding in its rules.
 **Grain:** 3 scopes × 48 buckets/day. `Object_Id = Scope`, so each scope is tracked
 independently by Activator.
 
+**Assigned levels** — `Gold_EarlyWarning` joins `EWI_AlertThreshold` (on
+`Scope × IndicatorKey × WindowCode × DayType`) and emits, per **Scope × 30-min bucket ×
+indicator**, the `Value`, matched `L1/L2/L3`, and the resulting `Alert_Level` (L0–L3). Thresholds
+are no longer typed into Activator.
+
 **Persistence** — this is where the two [architecture options](#architecture-options) diverge:
 **Option 1** lets Activator run `Gold_EarlyWarning()` directly; **Option 3** stores these rows in
 `Gold_EarlyWarning_Snapshot` via a 30-min idempotent `.set-or-append` so Activator and Power BI
 read a table. See [option-1-function.md](option-1-function.md) / [option-3-snapshot-table.md](option-3-snapshot-table.md).
 
 **Example Activator rule**
-> Object `TOTAL_BANK` · filter `WindowCode = MORNING_WORKING_HOUR` and
-> `DayType = BUSINESS_DAY` · when `NetOutflow_MB <= -5500` → **Critical**.
+> Object `TOTAL_BANK` (indicator `NetOutflow_MB`) · when `Alert_Level in ('L2','L3')` → alert.
 >
-> Editing the number, or removing the `DayType` filter, is done entirely in the Activator UI.
-> To tier a metric, add L1/L2/L3 as three conditions (or three rules) with your own values.
+> The level already encodes the `Window × DayType` threshold from `EWI_AlertThreshold`, so the
+> rule is a single condition — no per-window numbers typed in Activator. Retune by editing the
+> reference CSV and reloading.
 
 ---
 
@@ -334,9 +370,13 @@ Run in the `DepositMovement` KQL database (inside Eventhouse `eh-rti-deposit`).
    30-minute base MV on Silver: channel-excluded (`MSYG`/`SYSG`), `IsRetail`-tagged, periodic
    sums by date / bucket / day-type / event-flags. Created `WITH (backfill=true)` →
    **auto-backfills** from Silver. Confirm / re-backfill: [kql/13](kql/13-backfill-verify-mv_EarlyWarning_Base.kql).
-2. ✅ **`Gold_EarlyWarning(TargetDate, VelocityN=4)`** — [kql/11-create-fn_Gold_EarlyWarning.kql](kql/11-create-fn_Gold_EarlyWarning.kql)
-   Rolls the base up to the 3 scopes and computes all 8 indicators → the wide table above.
-3. ✅ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql).
+2. ⏳ **`EWI_AlertThreshold`** reference table — `kql/16-create-EWI_AlertThreshold.kql` (create +
+   policies + CSV mapping) and `kql/17-load-EWI_AlertThreshold.kql` (load 288 rows from
+   [data/ewi-alert-threshold.csv](data/ewi-alert-threshold.csv)). Retune by editing the CSV and reloading.
+3. ⏳ **`Gold_EarlyWarning(TargetDate, VelocityN=4)`** — [kql/11-create-fn_Gold_EarlyWarning.kql](kql/11-create-fn_Gold_EarlyWarning.kql)
+   Rolls the base up to the 3 scopes, computes all 8 indicators, **joins `EWI_AlertThreshold`**,
+   and assigns `Alert_Level` (L0–L3) per Scope × bucket × indicator.
+4. ✅ **Verification** — [kql/12-verify-EarlyWarning.kql](kql/12-verify-EarlyWarning.kql).
 
 **Option 1 — function only** ([option-1-function.md](option-1-function.md)): stop after step 3;
 wire Activator to `Gold_EarlyWarning()`.
@@ -353,10 +393,10 @@ wire Activator to `Gold_EarlyWarning()`.
 ## Open points
 
 - **#7 Cluster Share** and **#8 Sudden Share Jump** thresholds — the customer supplies the
-  % / pp numbers (entered in Activator). Values are computed and emitted now; only the alert
-  rules wait.
-- **Trigger-amount calibration** — compute L1/L2/L3 absolute amounts from historical
-  percentiles (P80/P90/P95) per 30-min bucket × day type × scope (downstream Phase 1.5).
+  % / pp numbers; add them to [data/ewi-alert-threshold.csv](data/ewi-alert-threshold.csv) and
+  reload `EWI_AlertThreshold`. Values are computed now; these two stay `L0` until filled.
+- **Trigger-amount calibration** — the L1/L2/L3 amounts in the reference table are calibrated
+  from historical percentiles (P80/P90/P95) per 30-min bucket × day type × scope (Phase 1.5).
 - **Engine enrichment (later phases)** — add *deviation*, *persistence*, and *multi-signal*
   logic on top of the Phase-1 magnitude comparison.
 - **`single-transaction max`** — deferred; needs transaction-level data not in the aggregated feed.
