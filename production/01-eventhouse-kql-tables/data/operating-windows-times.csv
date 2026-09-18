@@ -2,4 +2,4 @@ WindowCode,WindowName,StartTime,EndTime,SortOrder
 BEFORE_WORKING_HOUR,before working hour,00:00:00,08:30:00,1
 MORNING_WORKING_HOUR,morning working hour,08:30:00,12:00:00,2
 AFTERNOON_WORKING_HOUR,afternoon working hour,12:00:00,17:30:00,3
-AFTER_WORKING_HOUR,after working hour,17:30:00,00:00:00,4
+AFTER_WORKING_HOUR,after working hour,17:30:00,1.00:00:00,4
