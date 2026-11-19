@@ -1,0 +1,2687 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Clone Schema DepositMovement",
+        "dependsOn": [],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_DepositMovement <| DepositMovement | take 0",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Clone Schema DepositMovementClassified",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Clone Schema DepositMovement"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_DepositMovementClassified <| DepositMovementClassified | take 0",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Clone Schema DepositMovementEarlyWarning",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Clone Schema DepositMovementClassified"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_DepositMovementEarlyWarning <| DepositMovementEarlyWarning | take 0",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Disable Test Streaming",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Clone Schema DepositMovementEarlyWarning"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".alter table CR01Test_06622392_DepositMovement policy streamingingestion disable",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Create Clean Isolated Threshold Fixture",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Disable Test Streaming"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_EWI_AlertThreshold <| EWI_AlertThreshold | distinct *",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Create Test Classification Function",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Create Clean Isolated Threshold Fixture"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create function CR01Test_06622392_Transform_DepositMovementClassified() {\n    // Note 1: The function has no parameters because the update policy supplies\n    // the newly ingested rows through the CR01Test_06622392_DepositMovement source table below.\n    //\n    // Note 2: Reference tables are reduced to scalar dynamic values once per\n    // function execution, then reused while every source row is classified.\n    // A scalar property bag avoids a join in the update-policy query. Fabric\n    // otherwise requires streaming ingestion to be disabled on the source table.\n    //\n    // Note 3: These boundaries form [January 1 this year, January 1 next year).\n    // The half-open range includes every instant in the current execution year.\n    let CurrentYearStart = startofyear(now());\n    let NextYearStart = datetime_add(\"year\", 1, CurrentYearStart);\n    // Note 3b: The event-flag calendar spans a small pad on each side of the year\n    // so long-weekend runs and payroll shifts that cross the boundary resolve\n    // correctly. Padded dates outside the current year are never emitted.\n    let CalendarStart = datetime_add(\"day\", -3, CurrentYearStart);\n    let CalendarEnd = datetime_add(\"day\", 3, NextYearStart);\n    // Note 4: HolidayByDate becomes a property bag such as\n    // {\"2026-01-01\":\"New Year's Day\"}, enabling a lookup by local date key.\n    let HolidayByDate = toscalar(\n        ThailandFinancialInstitutionHoliday\n        // Note 5: Filter before summarize so holidays outside the current year\n        // do not consume aggregation memory or participate in classification.\n        | where HolidayDate >= CalendarStart\n            and HolidayDate < CalendarEnd\n        // Note 6: Normalize timestamps to dates and choose one deterministic\n        // name if the reference table contains duplicate rows for the same day.\n        | summarize HolidayName = min(HolidayName)\n            by HolidayDate = startofday(HolidayDate)\n        | extend HolidayDateKey = format_datetime(HolidayDate, \"yyyy-MM-dd\")\n        // Note 7: make_bag creates the date-to-name dictionary used later by\n        // bag_has_key and indexed lookup operations.\n        | summarize Holidays = make_bag(bag_pack(HolidayDateKey, HolidayName))\n    );\n    // Note 8: Windows becomes one ordered dynamic array containing all operating\n    // window definitions. SortOrder keeps the reference-table sequence stable.\n    let Windows = toscalar(\n        OperatingWindowsTimes\n        | order by SortOrder asc\n        | summarize WindowDefinitions = make_list(pack(\n            \"WindowCode\", WindowCode,\n            \"WindowName\", WindowName,\n            \"StartTime\", StartTime,\n            \"EndTime\", EndTime,\n            \"SortOrder\", SortOrder))\n    );\n    // Note 8b: YearCalendar enumerates every local date in the padded year and\n    // flags weekends and holidays so business days can be derived deterministically.\n    let YearCalendar =\n        range _CalDay from CalendarStart to datetime_add(\"day\", -1, CalendarEnd) step 1d\n        | extend _CalKey = format_datetime(_CalDay, \"yyyy-MM-dd\")\n        | extend _CalIsWeekend = dayofweek(_CalDay) in (0d, 6d)\n        | extend _CalIsHoliday = bag_has_key(HolidayByDate, _CalKey)\n        | extend _CalIsBusinessDay = not(_CalIsWeekend) and not(_CalIsHoliday);\n    // Note 8c: PayrollDates resolves each scheduled payday (the 25th and the last\n    // calendar day of the month) backward to the previous business day when it\n    // falls on a weekend or holiday, then keeps the effective dates as a set.\n    let PayrollDates = toscalar(\n        YearCalendar\n        | where dayofmonth(_CalDay) == 25 or _CalDay == startofday(endofmonth(_CalDay))\n        | project _AnchorDate = _CalDay\n        | mv-expand _Offset = range(0, 14, 1) to typeof(long)\n        | extend _Candidate = datetime_add(\"day\", -_Offset, _AnchorDate)\n        | extend _CandKey = format_datetime(_Candidate, \"yyyy-MM-dd\")\n        | extend _CandIsBusinessDay =\n            not(dayofweek(_Candidate) in (0d, 6d))\n            and not(bag_has_key(HolidayByDate, _CandKey))\n        | where _CandIsBusinessDay\n        | summarize arg_min(_Offset, _Candidate) by _AnchorDate\n        | summarize PayrollSet = make_set(format_datetime(_Candidate, \"yyyy-MM-dd\"))\n    );\n    // Note 8d: LongWeekendDates finds maximal runs of consecutive non-business\n    // days. A running count of business days holds one id across each gap, so a\n    // run of three or more non-business days marks every date it contains.\n    let LongWeekendDates = toscalar(\n        YearCalendar\n        | order by _CalDay asc\n        | extend _BusinessRunId = row_cumsum(toint(_CalIsBusinessDay))\n        | where not(_CalIsBusinessDay)\n        | summarize _RunLength = count(), _RunDates = make_list(_CalKey) by _BusinessRunId\n        | where _RunLength >= 3\n        | mv-expand _RunDate = _RunDates to typeof(string)\n        | summarize LongWeekendSet = make_set(_RunDate)\n    );\n    // Note 9: Processing starts with the Bronze rows supplied to this function.\n    CR01Test_06622392_DepositMovement\n    // Note 9b: Normalize Channel - source can carry leading/trailing whitespace,\n    // which breaks exact matches (MSYG/SYSG exclusion, IsRetail, Channel_Group).\n    | extend Channel = trim(@\"\\s\", tostring(Channel))\n    // Note 10: Date is interpreted as Bangkok local calendar time. Time stores\n    // an interval, so only its HH:mm start value is extracted for classification.\n    | extend\n        LocalDate = startofday(Date),\n        _TimeStartText = extract(@\"^([0-9]{2}:[0-9]{2})-[0-9]{2}:[0-9]{2}$\", 1, Time)\n    // Note 11: Appending seconds converts HH:mm into a timespan that can be\n    // compared with the StartTime and EndTime values from the window reference.\n    | extend LocalTimeOfDay = totimespan(strcat(_TimeStartText, \":00\"))\n    | extend LocalDateTime = LocalDate + LocalTimeOfDay\n    // Note 12: KQL dayofweek returns Sunday as 0d and Saturday as 6d.\n    | extend\n        IsWeekend = dayofweek(LocalDate) in (0d, 6d),\n        _LocalDateKey = format_datetime(LocalDate, \"yyyy-MM-dd\")\n    // Note 13: The date key checks holiday membership and retrieves its name\n    // without joining each CR01Test_06622392_DepositMovement row to the holiday table.\n    | extend\n        IsFinancialInstitutionHoliday = bag_has_key(HolidayByDate, _LocalDateKey),\n        HolidayName = tostring(HolidayByDate[_LocalDateKey])\n    // Note 14: A business day must pass both calendar checks. Operating-window\n    // assignment is independent and applies to every valid source row.\n    | extend IsBusinessDay = not(IsWeekend)\n        and not(IsFinancialInstitutionHoliday)\n    // Note 15: Weekend has precedence when a date is both a weekend and a listed\n    // holiday; otherwise the date is classified as holiday or business day.\n    | extend DayClassification = case(\n        IsWeekend, \"WEEKEND\",\n        IsFinancialInstitutionHoliday, \"HOLIDAY\",\n        \"BUSINESS_DAY\")\n    // mv-apply evaluates all reference ranges inside each source row. The summarize\n    // returns one result per input row, including malformed or unmatched rows.\n    // Note 16: Window ranges are half-open [StartTime, EndTime), so a boundary\n    // time belongs to the window that starts there and never to the previous one.\n    | mv-apply _Window = Windows to typeof(dynamic) on (\n        extend\n            _WindowStart = totimespan(_Window[\"StartTime\"]),\n            _WindowEnd = totimespan(_Window[\"EndTime\"])\n        | extend _IsWindowMatch =\n            isnotnull(LocalTimeOfDay)\n            and LocalTimeOfDay >= _WindowStart\n            and LocalTimeOfDay < _WindowEnd\n        // Note 17: Counting matches detects missing and overlapping reference\n        // windows. The matching definitions are retained for field extraction.\n        | summarize\n            WindowMatchCount = countif(_IsWindowMatch),\n            _MatchedWindows = make_list_if(_Window, _IsWindowMatch)\n    )\n    // Note 18: Index zero is safe to inspect as a dynamic value. Output window\n    // fields are populated only when exactly one definition matched.\n    | extend _MatchedWindow = _MatchedWindows[0]\n    | extend\n        OperatingWindowCode = iff(WindowMatchCount == 1, tostring(_MatchedWindow[\"WindowCode\"]), \"\"),\n        OperatingWindowName = iff(WindowMatchCount == 1, tostring(_MatchedWindow[\"WindowName\"]), \"\"),\n        OperatingWindowStartTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow[\"StartTime\"]), timespan(null)),\n        OperatingWindowEndTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow[\"EndTime\"]), timespan(null)),\n        OperatingWindowSortOrder = iff(WindowMatchCount == 1, toint(_MatchedWindow[\"SortOrder\"]), int(null)),\n        // Note 19: Status precedence reports malformed time first, followed by\n        // missing or overlapping window definitions for every day classification.\n        ClassificationStatus = case(\n            isempty(_TimeStartText), \"INVALID_TIME_FORMAT\",\n            WindowMatchCount == 0, \"NO_WINDOW_MATCH\",\n            WindowMatchCount > 1, \"MULTIPLE_WINDOW_MATCHES\",\n            \"CLASSIFIED\")\n    // Note 19b: Event flags mark calendar events that shift deposit behaviour.\n    // Month-end is the last calendar day; payroll and long-weekend membership\n    // come from the pre-computed sets. EventFlag joins the active events with a\n    // comma, or reports NORMAL when none apply.\n    | extend\n        IsMonthEnd = LocalDate == startofday(endofmonth(LocalDate)),\n        IsPayroll = set_has_element(PayrollDates, _LocalDateKey),\n        IsLongWeekend = set_has_element(LongWeekendDates, _LocalDateKey)\n    | extend _EventList = set_difference(pack_array(\n            iff(IsMonthEnd, \"MONTH_END\", \"\"),\n            iff(IsPayroll, \"PAYROLL\", \"\"),\n            iff(IsLongWeekend, \"LONG_WEEKEND\", \"\")), dynamic([\"\"]))\n    | extend EventFlag = iff(array_length(_EventList) == 0, \"NORMAL\", strcat_array(_EventList, \",\"))\n    // Note 20: The final projection removes temporary underscore-prefixed fields\n    // and fixes the exact column order required by DepositMovementClassified.\n    | project\n        Date, Time, Product, Channel, Channel_Group,\n        Credit_Amount, Debit_Amount, Net_Amount,\n        Credit_Transaction, Debit_Transaction, Total_Transaction,\n        load_ts, file_name, pipeline_name, pipeline_runid,\n        LocalDate, LocalDateTime, LocalTimeOfDay,\n        IsWeekend, IsFinancialInstitutionHoliday, IsBusinessDay,\n        DayClassification, HolidayName,\n        OperatingWindowCode, OperatingWindowName,\n        OperatingWindowStartTime, OperatingWindowEndTime, OperatingWindowSortOrder,\n        WindowMatchCount, ClassificationStatus,\n        IsMonthEnd, IsPayroll, IsLongWeekend, EventFlag\n}",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Create Test EWI Function",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Create Test Classification Function"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create function CR01Test_06622392_Gold_EarlyWarning(TargetDate:datetime=datetime(null), VelocityN:int=4) {\n    let _target = iff(isnull(TargetDate), startofday(now() + 7h), startofday(TargetDate));\n    // Self-contained aggregation of Silver (folds in the former mv_EarlyWarning_Base):\n    // exclude MSYG/SYSG, tag IsRetail, bin to 30-min, periodic sums per bucket x IsRetail.\n    let base =\n        CR01Test_06622392_DepositMovementClassified\n        | where LocalDate == _target\n        | where isnotnull(LocalDateTime)\n        | where Channel !in (\"MSYG\", \"SYSG\")\n        | extend IsRetail = Channel in (\"ENET\", \"ATM\", \"CDM\"), BucketStart = bin(LocalDateTime, 30m)\n        | summarize\n            GrossOutflow = sum(Debit_Amount),\n            Net          = sum(Net_Amount),\n            DebitTxn     = sum(Debit_Transaction)\n            by LocalDate, BucketStart, DayClassification, EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail;\n    // Per-bucket cross-scope aggregates (Retails vs Non-Retails); cluster shares\n    // need both clusters side by side, so compute them here before fan-out.\n    let perBucket =\n        base\n        | summarize\n            Gross_R  = sumif(GrossOutflow, IsRetail),\n            Gross_NR = sumif(GrossOutflow, not(IsRetail)),\n            Net_R    = sumif(Net, IsRetail),\n            Net_NR   = sumif(Net, not(IsRetail)),\n            Txn_R    = sumif(DebitTxn, IsRetail),\n            Txn_NR   = sumif(DebitTxn, not(IsRetail))\n            by LocalDate, BucketStart, DayClassification, EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend\n        | extend\n            Gross_T = Gross_R + Gross_NR,\n            Net_T   = Net_R + Net_NR,\n            Txn_T   = Txn_R + Txn_NR\n        // #7 Cluster Share on draining magnitude, so the value stays in 0-100%.\n        | extend _OutR = max_of(0.0, todouble(-Net_R)), _OutNR = max_of(0.0, todouble(-Net_NR))\n        | extend _Denom = _OutR + _OutNR\n        | extend\n            Share_R  = iff(_Denom > 0, 100.0 * _OutR  / _Denom, real(null)),\n            Share_NR = iff(_Denom > 0, 100.0 * _OutNR / _Denom, real(null));\n    // Fan out to the 3 scopes. TOTAL_BANK carries no cluster share (its share is 100%).\n    let scopeRows =\n        union\n          ( perBucket | extend Scope = \"TOTAL_BANK\",  GrossOutflow = todouble(Gross_T),  NetOutflow = todouble(Net_T),  DebitTxn = Txn_T,  ClusterShare_Pct = real(null) ),\n          ( perBucket | extend Scope = \"RETAILS\",     GrossOutflow = todouble(Gross_R),  NetOutflow = todouble(Net_R),  DebitTxn = Txn_R,  ClusterShare_Pct = Share_R ),\n          ( perBucket | extend Scope = \"NON_RETAILS\", GrossOutflow = todouble(Gross_NR), NetOutflow = todouble(Net_NR), DebitTxn = Txn_NR, ClusterShare_Pct = Share_NR );\n    let wide =\n        scopeRows\n        | order by Scope asc, BucketStart asc\n        | extend _restart = (Scope != prev(Scope))\n        // #3 Accumulated net outflow from 00:00, reset per scope.\n        | extend AccumNet = row_cumsum(NetOutflow, _restart)\n        // #5 Velocity. Fixed N: average of the prior 4 buckets (same scope). Expanding\n        // (VelocityN = 0): average of all prior buckets that day.\n        | extend _expSum   = row_cumsum(DebitTxn, _restart) - DebitTxn\n        | extend _expCount = row_cumsum(1, _restart) - 1\n        | extend _fixSum   = prev(DebitTxn, 1) + prev(DebitTxn, 2) + prev(DebitTxn, 3) + prev(DebitTxn, 4)\n        | extend _has4Prior = (prev(Scope, 4) == Scope)\n        | extend AvgPrior = iff(\n            VelocityN == 0,\n            iff(_expCount > 0, todouble(_expSum) / _expCount, real(null)),\n            iff(_has4Prior, todouble(_fixSum) / 4.0, real(null)))\n        | extend Velocity = iff(isnull(AvgPrior) or AvgPrior == 0, real(null), todouble(DebitTxn) / AvgPrior)\n        // #8 Sudden share jump vs the prior 30-min bucket of the same scope.\n        | extend ShareJump_Pct = iff(Scope == prev(Scope), ClusterShare_Pct - prev(ClusterShare_Pct), real(null))\n        // Comparable-time window from the bucket start.\n        | extend _tod = BucketStart - startofday(BucketStart)\n        | extend WindowCode = case(\n            _tod < timespan(08:30:00), \"BEFORE_WORKING_HOUR\",\n            _tod < timespan(12:00:00), \"MORNING_WORKING_HOUR\",\n            _tod < timespan(17:30:00), \"AFTERNOON_WORKING_HOUR\",\n            \"AFTER_WORKING_HOUR\")\n        | extend WindowName = case(\n            _tod < timespan(08:30:00), \"before working hour\",\n            _tod < timespan(12:00:00), \"morning working hour\",\n            _tod < timespan(17:30:00), \"afternoon working hour\",\n            \"after working hour\")\n        | extend _bEnd = BucketStart + 30m\n        | project\n            Scope,\n            LocalDate,\n            BucketStart,\n            Bucket_Label = strcat(format_datetime(BucketStart, \"HH:mm\"), \"-\", format_datetime(_bEnd, \"HH:mm\")),\n            WindowCode, WindowName,\n            DayType = DayClassification,\n            EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend,\n            GrossOutflow_MB    = GrossOutflow / 1000000.0,\n            NetOutflow_MB      = NetOutflow / 1000000.0,\n            AccumNetOutflow_MB = AccumNet / 1000000.0,\n            DebitTxnCount_M    = DebitTxn / 1000000.0,\n            Velocity_X         = Velocity,\n            AvgDebitAmount_MB  = iff(DebitTxn > 0, (GrossOutflow / DebitTxn) / 1000000.0, real(null)),\n            ClusterShare_Pct,\n            ShareJump_Pct;\n    // Unpivot the 8 indicators to long form (one row per Scope x bucket x indicator).\n    let melted =\n        union\n          ( wide | extend IndicatorKey = \"GrossOutflow_MB\",    IndicatorName = \"Gross Outflow\",        Unit = \"MB\",      Value = GrossOutflow_MB ),\n          ( wide | extend IndicatorKey = \"NetOutflow_MB\",      IndicatorName = \"Net Outflow\",          Unit = \"MB\",      Value = NetOutflow_MB ),\n          ( wide | extend IndicatorKey = \"AccumNetOutflow_MB\", IndicatorName = \"Accum Net Outflow\",    Unit = \"MB\",      Value = AccumNetOutflow_MB ),\n          ( wide | extend IndicatorKey = \"DebitTxnCount_M\",    IndicatorName = \"Debit Txn Count\",      Unit = \"Million\", Value = DebitTxnCount_M ),\n          ( wide | extend IndicatorKey = \"Velocity_X\",         IndicatorName = \"Transaction Velocity\", Unit = \"X\",       Value = Velocity_X ),\n          ( wide | extend IndicatorKey = \"AvgDebitAmount_MB\",  IndicatorName = \"Average Debit Amount\", Unit = \"MB\",      Value = AvgDebitAmount_MB ),\n          ( wide | extend IndicatorKey = \"ClusterShare_Pct\",   IndicatorName = \"Cluster Share\",        Unit = \"%\",       Value = ClusterShare_Pct ),\n          ( wide | extend IndicatorKey = \"ShareJump_Pct\",      IndicatorName = \"Sudden Share Jump\",    Unit = \"pp\",      Value = ShareJump_Pct );\n    melted\n    // Attach the L1/L2/L3 amounts + Direction for this Scope x Indicator x Window x DayType.\n    | lookup kind=leftouter CR01Test_06622392_EWI_AlertThreshold on Scope, IndicatorKey, WindowCode, DayType\n    // Assign the level, honouring direction; blank thresholds (null) are skipped.\n    | extend Alert_Level = case(\n        isnull(Value), \"L0\",\n        Direction == \"LOW_IS_BAD\",\n            case(isnotnull(L3) and Value <= L3, \"L3\",\n                 isnotnull(L2) and Value <= L2, \"L2\",\n                 isnotnull(L1) and Value <= L1, \"L1\", \"L0\"),\n            case(isnotnull(L3) and Value >= L3, \"L3\",\n                 isnotnull(L2) and Value >= L2, \"L2\",\n                 isnotnull(L1) and Value >= L1, \"L1\", \"L0\"))\n    | extend Alert_Rank = case(Alert_Level == \"L3\", 3, Alert_Level == \"L2\", 2, Alert_Level == \"L1\", 1, 0)\n    | extend Alert_Level_Name = case(Alert_Level == \"L3\", \"Critical\", Alert_Level == \"L2\", \"Warning\", Alert_Level == \"L1\", \"Watch\", \"Normal\")\n    | project\n        Object_Id     = strcat(Scope, \"|\", IndicatorKey),   // Activator identity: per Scope x Indicator\n        Scope,\n        Date_ICT      = format_datetime(LocalDate, \"yyyy-MM-dd\"),\n        Bucket_Start  = BucketStart,\n        Bucket_Label,\n        Alert_Time    = now() + 7h,\n        WindowCode, WindowName,\n        DayType,\n        EventFlag, IsMonthEnd, IsPayroll, IsLongWeekend,\n        IndicatorId, IndicatorKey, IndicatorName, Unit,\n        Value, Direction, L1, L2, L3,\n        Alert_Level, Alert_Rank, Alert_Level_Name\n    | order by Scope asc, Bucket_Start asc, IndicatorId asc\n}",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Enable Test Classification Policy",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Create Test EWI Function"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".alter table CR01Test_06622392_DepositMovementClassified policy update '[{\"IsEnabled\":true,\"IsTransactional\":true,\"Query\":\"CR01Test_06622392_Transform_DepositMovementClassified()\",\"Source\":\"CR01Test_06622392_DepositMovement\",\"PropagateIngestionProperties\":true}]'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Create Test Visibility State",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Enable Test Classification Policy"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create table CR01Test_06622392_CR01_PublishState (IsReady:bool,ChangedAtUtc:datetime,Owner:string)",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Seed Original Test Data",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Create Test Visibility State"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-append CR01Test_06622392_DepositMovement <| datatable(Date:datetime,Time:string,Product:string,Channel:string,Channel_Group:string,Credit_Amount:decimal,Debit_Amount:decimal,Net_Amount:decimal,Credit_Transaction:long,Debit_Transaction:long,Total_Transaction:long,load_ts:datetime,file_name:string,pipeline_name:string,pipeline_runid:string)[datetime(2026-11-17),\"23:00-23:30\",\"S\",\"ENET\",\"Retail\",decimal(100),decimal(50),decimal(50),10,5,15,datetime(2026-11-18T03:00:00),\"INTRADAY_SUMMARY_20261117_2300_2330.CSV\",\"CR01Test\",\"old1\",\r\ndatetime(2026-11-18),\"00:00-00:30\",\"S\",\"ENET\",\"Retail\",decimal(200),decimal(100),decimal(100),20,10,30,datetime(2026-11-18T03:00:00),\"INTRADAY_SUMMARY_20261118_0000_0030.CSV\",\"CR01Test\",\"old2\",\r\ndatetime(2026-11-17),\"12:00-12:30\",\"S\",\"ENET\",\"Retail\",decimal(10),decimal(5),decimal(5),1,1,2,datetime(2026-11-17T12:30:00),\"INTRADAY_SUMMARY_20261117_1200_1230.CSV\",\"CR01Test\",\"unrelated\"]",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Seed mv_Summary_Product_Channel_Alert",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Seed Original Test Data"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create materialized-view with (backfill=true,folder=\"Gold\",docstring=\"\") CR01Test_06622392_mv_Summary_Product_Channel_Alert on table CR01Test_06622392_DepositMovement { CR01Test_06622392_DepositMovement\r\n    | summarize\r\n        Time               = max(Time),\r\n        Credit_Amount      = sum(Credit_Amount),\r\n        Debit_Amount       = sum(Debit_Amount),\r\n        Net_Amount         = sum(Net_Amount),\r\n        Credit_Transaction = sum(Credit_Transaction),\r\n        Debit_Transaction  = sum(Debit_Transaction),\r\n        Total_Transaction  = sum(Total_Transaction),\r\n        UpdatedAtUtc       = max(load_ts)\r\n        by Date, Product, Channel, Channel_Group }",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Seed mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Seed mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create materialized-view with (backfill=true,folder=\"Gold\",docstring=\"\") CR01Test_06622392_mv_EarlyWarning_Base on table CR01Test_06622392_DepositMovementClassified { CR01Test_06622392_DepositMovementClassified\n    // Only rows with a valid local time can fall into a 30-minute bucket.\n    | where isnotnull(LocalDateTime)\n    // Main condition #1: exclude MSYG / SYSG from every calculation.\n    | where Channel !in (\"MSYG\", \"SYSG\")\n    | extend\n        IsRetail    = Channel in (\"ENET\", \"ATM\", \"CDM\"),\n        BucketStart = bin(LocalDateTime, 30m)\n    | summarize\n        GrossOutflow = sum(Debit_Amount),\n        Credit       = sum(Credit_Amount),\n        Net          = sum(Net_Amount),\n        DebitTxn     = sum(Debit_Transaction),\n        UpdatedAtUtc = max(load_ts)\n        by LocalDate, BucketStart, DayClassification, EventFlag,\n           IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail }",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Seed Caching mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Seed mv_EarlyWarning_Base"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".alter materialized-view CR01Test_06622392_mv_EarlyWarning_Base policy caching hot = 90d",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Seed Old EWI Snapshots",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Seed Caching mv_EarlyWarning_Base"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-append CR01Test_06622392_DepositMovementEarlyWarning <| union (CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18)-1d)),(CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18))) | project Object_Id,Scope,Date_ICT,Bucket_Start,Bucket_Label,Alert_Time,WindowCode,WindowName,DayType,EventFlag,IsMonthEnd,IsPayroll,IsLongWeekend,IndicatorId,IndicatorKey,IndicatorName,Unit,Value,Direction,L1,L2,L3,Alert_Level,Alert_Rank=toint(Alert_Rank)",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Create Corrected Staging Schema",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Seed Old EWI Snapshots"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_CR01_Stage_20261118 <| DepositMovement | take 0",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Seed Adjusted Overnight Version",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Create Corrected Staging Schema"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-append CR01Test_06622392_CR01_Stage_20261118 <| datatable(Date:datetime,Time:string,Product:string,Channel:string,Channel_Group:string,Credit_Amount:decimal,Debit_Amount:decimal,Net_Amount:decimal,Credit_Transaction:long,Debit_Transaction:long,Total_Transaction:long,load_ts:datetime,file_name:string,pipeline_name:string,pipeline_runid:string)[datetime(2026-11-17),\"23:00-23:30\",\"S\",\"ENET\",\"Retail\",decimal(150),decimal(70),decimal(80),15,7,22,datetime(2026-11-18T03:30:00),\"INTRADAY_SUMMARY_20261117_2300_2330.CSV\",\"CR01Test\",\"new1\",\r\ndatetime(2026-11-18),\"00:00-00:30\",\"S\",\"ENET\",\"Retail\",decimal(220),decimal(110),decimal(110),22,11,33,datetime(2026-11-18T03:30:00),\"INTRADAY_SUMMARY_20261118_0000_0030.CSV\",\"CR01Test\",\"new2\"]",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Create Intentional Verifier Mismatch",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Seed Adjusted Overnight Version"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_VerifierNegative <| print Problem='Intentional negative-test row'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "typeProperties": {
+          "ifTrueActivities": [
+            {
+              "typeProperties": {
+                "message": "A deliberate mismatch was not detected from the synchronous ingestion result.",
+                "errorCode": "CR01_VERIFIER_FAILED"
+              },
+              "dependsOn": [],
+              "name": "Fail Negative Verifier Test",
+              "type": "Fail"
+            }
+          ],
+          "expression": {
+            "type": "Expression",
+            "value": "@not(greater(int(activity('Create Intentional Verifier Mismatch').output.count),0))"
+          },
+          "ifFalseActivities": []
+        },
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Create Intentional Verifier Mismatch"
+          }
+        ],
+        "name": "Require Negative Verifier Detection",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Threshold Reference Keys",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Require Negative Verifier Detection"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let expected=print Scope=dynamic([\"TOTAL_BANK\",\"RETAILS\",\"NON_RETAILS\"])\r\n| mv-expand Scope to typeof(string)\r\n| extend IndicatorKey=dynamic([\"GrossOutflow_MB\",\"NetOutflow_MB\",\"AccumNetOutflow_MB\",\"DebitTxnCount_M\",\"Velocity_X\",\"AvgDebitAmount_MB\",\"ClusterShare_Pct\",\"ShareJump_Pct\"])\r\n| mv-expand IndicatorKey to typeof(string)\r\n| extend WindowCode=dynamic([\"BEFORE_WORKING_HOUR\",\"MORNING_WORKING_HOUR\",\"AFTERNOON_WORKING_HOUR\",\"AFTER_WORKING_HOUR\"])\r\n| mv-expand WindowCode to typeof(string)\r\n| extend DayType=dynamic([\"BUSINESS_DAY\",\"WEEKEND\",\"HOLIDAY\"])\r\n| mv-expand DayType to typeof(string) | extend Expected=true;\r\nexpected\r\n| join kind=fullouter (\r\n    CR01Test_06622392_EWI_AlertThreshold | summarize Copies=count() by Scope,IndicatorKey,WindowCode,DayType\r\n) on Scope,IndicatorKey,WindowCode,DayType\r\n| where isnull(Expected) or isnull(Copies) or Copies!=1\r\n| project Problem='Missing, unexpected, or duplicate threshold reference key'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Threshold Reference Keys"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Threshold Reference Keys').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Threshold Reference Keys has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Threshold Reference Keys Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Threshold Reference Keys",
+        "type": "IfCondition"
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Threshold Reference Keys"
+          }
+        ],
+        "typeProperties": {
+          "activities": [
+            {
+              "type": "KustoQueryLanguage",
+              "linkedService": {
+                "name": "DepositMovement",
+                "properties": {
+                  "annotations": [],
+                  "type": "KustoDatabase",
+                  "typeProperties": {
+                    "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+                    "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+                    "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+                  }
+                }
+              },
+              "name": "Compute Staging Readiness",
+              "dependsOn": [],
+              "policy": {
+                "secureOutput": false,
+                "retry": 0,
+                "timeout": "0.01:00:00",
+                "secureInput": false
+              },
+              "typeProperties": {
+                "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let expected=print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | project file_name=tostring(items.FileName), Expected=tolong(items.ExpectedRows); expected | join kind=fullouter (CR01Test_06622392_CR01_Stage_20261118 | summarize Actual=count() by file_name) on file_name | where isnull(Expected) or Expected!=coalesce(Actual,0) | project Problem=strcat(file_name,' stage count mismatch')",
+                "commandTimeout": "01:00:00"
+              }
+            },
+            {
+              "dependsOn": [
+                {
+                  "activity": "Compute Staging Readiness",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "waitTimeInSeconds": 5
+              },
+              "name": "Wait For Staging",
+              "type": "Wait"
+            }
+          ],
+          "expression": {
+            "value": "@equals(int(activity('Compute Staging Readiness').output.count),0)",
+            "type": "Expression"
+          },
+          "timeout": "0.00:30:00"
+        },
+        "name": "Wait For Queryable Staging",
+        "type": "Until"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Staged Source Contract",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Wait For Queryable Staging"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| CR01Test_06622392_CR01_Stage_20261118\r\n| where isnull(Date) or isnull(Credit_Amount) or isnull(Debit_Amount) or isnull(Net_Amount)\r\n    or isnull(Credit_Transaction) or isnull(Debit_Transaction) or isnull(Total_Transaction)\r\n    or format_datetime(Date,'yyyyMMdd') != extract(@\"^INTRADAY_SUMMARY_(\\d{8})_\",1,file_name)\r\n    or replace_string(trim(@\"\\s\",Time),':','') != strcat(\r\n        extract(@\"^INTRADAY_SUMMARY_\\d{8}_(\\d{4})_(\\d{4})\\.CSV$\",1,file_name),'-',\r\n        extract(@\"^INTRADAY_SUMMARY_\\d{8}_(\\d{4})_(\\d{4})\\.CSV$\",2,file_name))\r\n| project Problem=strcat(file_name,' invalid source data or filename/business interval mismatch')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Staged Source Contract"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Staged Source Contract').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Staged Source Contract has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Staged Source Contract Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Staged Source Contract",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Check Silver Transformation Version",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Staged Source Contract"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".show function Transform_DepositMovementClassified | where Body!=base64_decode_tostring('ewogICAgLy8gTm90ZSAxOiBUaGUgZnVuY3Rpb24gaGFzIG5vIHBhcmFtZXRlcnMgYmVjYXVzZSB0aGUgdXBkYXRlIHBvbGljeSBzdXBwbGllcwogICAgLy8gdGhlIG5ld2x5IGluZ2VzdGVkIHJvd3MgdGhyb3VnaCB0aGUgRGVwb3NpdE1vdmVtZW50IHNvdXJjZSB0YWJsZSBiZWxvdy4KICAgIC8vCiAgICAvLyBOb3RlIDI6IFJlZmVyZW5jZSB0YWJsZXMgYXJlIHJlZHVjZWQgdG8gc2NhbGFyIGR5bmFtaWMgdmFsdWVzIG9uY2UgcGVyCiAgICAvLyBmdW5jdGlvbiBleGVjdXRpb24sIHRoZW4gcmV1c2VkIHdoaWxlIGV2ZXJ5IHNvdXJjZSByb3cgaXMgY2xhc3NpZmllZC4KICAgIC8vIEEgc2NhbGFyIHByb3BlcnR5IGJhZyBhdm9pZHMgYSBqb2luIGluIHRoZSB1cGRhdGUtcG9saWN5IHF1ZXJ5LiBGYWJyaWMKICAgIC8vIG90aGVyd2lzZSByZXF1aXJlcyBzdHJlYW1pbmcgaW5nZXN0aW9uIHRvIGJlIGRpc2FibGVkIG9uIHRoZSBzb3VyY2UgdGFibGUuCiAgICAvLwogICAgLy8gTm90ZSAzOiBUaGVzZSBib3VuZGFyaWVzIGZvcm0gW0phbnVhcnkgMSB0aGlzIHllYXIsIEphbnVhcnkgMSBuZXh0IHllYXIpLgogICAgLy8gVGhlIGhhbGYtb3BlbiByYW5nZSBpbmNsdWRlcyBldmVyeSBpbnN0YW50IGluIHRoZSBjdXJyZW50IGV4ZWN1dGlvbiB5ZWFyLgogICAgbGV0IEN1cnJlbnRZZWFyU3RhcnQgPSBzdGFydG9meWVhcihub3coKSk7CiAgICBsZXQgTmV4dFllYXJTdGFydCA9IGRhdGV0aW1lX2FkZCgieWVhciIsIDEsIEN1cnJlbnRZZWFyU3RhcnQpOwogICAgLy8gTm90ZSAzYjogVGhlIGV2ZW50LWZsYWcgY2FsZW5kYXIgc3BhbnMgYSBzbWFsbCBwYWQgb24gZWFjaCBzaWRlIG9mIHRoZSB5ZWFyCiAgICAvLyBzbyBsb25nLXdlZWtlbmQgcnVucyBhbmQgcGF5cm9sbCBzaGlmdHMgdGhhdCBjcm9zcyB0aGUgYm91bmRhcnkgcmVzb2x2ZQogICAgLy8gY29ycmVjdGx5LiBQYWRkZWQgZGF0ZXMgb3V0c2lkZSB0aGUgY3VycmVudCB5ZWFyIGFyZSBuZXZlciBlbWl0dGVkLgogICAgbGV0IENhbGVuZGFyU3RhcnQgPSBkYXRldGltZV9hZGQoImRheSIsIC0zLCBDdXJyZW50WWVhclN0YXJ0KTsKICAgIGxldCBDYWxlbmRhckVuZCA9IGRhdGV0aW1lX2FkZCgiZGF5IiwgMywgTmV4dFllYXJTdGFydCk7CiAgICAvLyBOb3RlIDQ6IEhvbGlkYXlCeURhdGUgYmVjb21lcyBhIHByb3BlcnR5IGJhZyBzdWNoIGFzCiAgICAvLyB7IjIwMjYtMDEtMDEiOiJOZXcgWWVhcidzIERheSJ9LCBlbmFibGluZyBhIGxvb2t1cCBieSBsb2NhbCBkYXRlIGtleS4KICAgIGxldCBIb2xpZGF5QnlEYXRlID0gdG9zY2FsYXIoCiAgICAgICAgVGhhaWxhbmRGaW5hbmNpYWxJbnN0aXR1dGlvbkhvbGlkYXkKICAgICAgICAvLyBOb3RlIDU6IEZpbHRlciBiZWZvcmUgc3VtbWFyaXplIHNvIGhvbGlkYXlzIG91dHNpZGUgdGhlIGN1cnJlbnQgeWVhcgogICAgICAgIC8vIGRvIG5vdCBjb25zdW1lIGFnZ3JlZ2F0aW9uIG1lbW9yeSBvciBwYXJ0aWNpcGF0ZSBpbiBjbGFzc2lmaWNhdGlvbi4KICAgICAgICB8IHdoZXJlIEhvbGlkYXlEYXRlID49IENhbGVuZGFyU3RhcnQKICAgICAgICAgICAgYW5kIEhvbGlkYXlEYXRlIDwgQ2FsZW5kYXJFbmQKICAgICAgICAvLyBOb3RlIDY6IE5vcm1hbGl6ZSB0aW1lc3RhbXBzIHRvIGRhdGVzIGFuZCBjaG9vc2Ugb25lIGRldGVybWluaXN0aWMKICAgICAgICAvLyBuYW1lIGlmIHRoZSByZWZlcmVuY2UgdGFibGUgY29udGFpbnMgZHVwbGljYXRlIHJvd3MgZm9yIHRoZSBzYW1lIGRheS4KICAgICAgICB8IHN1bW1hcml6ZSBIb2xpZGF5TmFtZSA9IG1pbihIb2xpZGF5TmFtZSkKICAgICAgICAgICAgYnkgSG9saWRheURhdGUgPSBzdGFydG9mZGF5KEhvbGlkYXlEYXRlKQogICAgICAgIHwgZXh0ZW5kIEhvbGlkYXlEYXRlS2V5ID0gZm9ybWF0X2RhdGV0aW1lKEhvbGlkYXlEYXRlLCAieXl5eS1NTS1kZCIpCiAgICAgICAgLy8gTm90ZSA3OiBtYWtlX2JhZyBjcmVhdGVzIHRoZSBkYXRlLXRvLW5hbWUgZGljdGlvbmFyeSB1c2VkIGxhdGVyIGJ5CiAgICAgICAgLy8gYmFnX2hhc19rZXkgYW5kIGluZGV4ZWQgbG9va3VwIG9wZXJhdGlvbnMuCiAgICAgICAgfCBzdW1tYXJpemUgSG9saWRheXMgPSBtYWtlX2JhZyhiYWdfcGFjayhIb2xpZGF5RGF0ZUtleSwgSG9saWRheU5hbWUpKQogICAgKTsKICAgIC8vIE5vdGUgODogV2luZG93cyBiZWNvbWVzIG9uZSBvcmRlcmVkIGR5bmFtaWMgYXJyYXkgY29udGFpbmluZyBhbGwgb3BlcmF0aW5nCiAgICAvLyB3aW5kb3cgZGVmaW5pdGlvbnMuIFNvcnRPcmRlciBrZWVwcyB0aGUgcmVmZXJlbmNlLXRhYmxlIHNlcXVlbmNlIHN0YWJsZS4KICAgIGxldCBXaW5kb3dzID0gdG9zY2FsYXIoCiAgICAgICAgT3BlcmF0aW5nV2luZG93c1RpbWVzCiAgICAgICAgfCBvcmRlciBieSBTb3J0T3JkZXIgYXNjCiAgICAgICAgfCBzdW1tYXJpemUgV2luZG93RGVmaW5pdGlvbnMgPSBtYWtlX2xpc3QocGFjaygKICAgICAgICAgICAgIldpbmRvd0NvZGUiLCBXaW5kb3dDb2RlLAogICAgICAgICAgICAiV2luZG93TmFtZSIsIFdpbmRvd05hbWUsCiAgICAgICAgICAgICJTdGFydFRpbWUiLCBTdGFydFRpbWUsCiAgICAgICAgICAgICJFbmRUaW1lIiwgRW5kVGltZSwKICAgICAgICAgICAgIlNvcnRPcmRlciIsIFNvcnRPcmRlcikpCiAgICApOwogICAgLy8gTm90ZSA4YjogWWVhckNhbGVuZGFyIGVudW1lcmF0ZXMgZXZlcnkgbG9jYWwgZGF0ZSBpbiB0aGUgcGFkZGVkIHllYXIgYW5kCiAgICAvLyBmbGFncyB3ZWVrZW5kcyBhbmQgaG9saWRheXMgc28gYnVzaW5lc3MgZGF5cyBjYW4gYmUgZGVyaXZlZCBkZXRlcm1pbmlzdGljYWxseS4KICAgIGxldCBZZWFyQ2FsZW5kYXIgPQogICAgICAgIHJhbmdlIF9DYWxEYXkgZnJvbSBDYWxlbmRhclN0YXJ0IHRvIGRhdGV0aW1lX2FkZCgiZGF5IiwgLTEsIENhbGVuZGFyRW5kKSBzdGVwIDFkCiAgICAgICAgfCBleHRlbmQgX0NhbEtleSA9IGZvcm1hdF9kYXRldGltZShfQ2FsRGF5LCAieXl5eS1NTS1kZCIpCiAgICAgICAgfCBleHRlbmQgX0NhbElzV2Vla2VuZCA9IGRheW9md2VlayhfQ2FsRGF5KSBpbiAoMGQsIDZkKQogICAgICAgIHwgZXh0ZW5kIF9DYWxJc0hvbGlkYXkgPSBiYWdfaGFzX2tleShIb2xpZGF5QnlEYXRlLCBfQ2FsS2V5KQogICAgICAgIHwgZXh0ZW5kIF9DYWxJc0J1c2luZXNzRGF5ID0gbm90KF9DYWxJc1dlZWtlbmQpIGFuZCBub3QoX0NhbElzSG9saWRheSk7CiAgICAvLyBOb3RlIDhjOiBQYXlyb2xsRGF0ZXMgcmVzb2x2ZXMgZWFjaCBzY2hlZHVsZWQgcGF5ZGF5ICh0aGUgMjV0aCBhbmQgdGhlIGxhc3QKICAgIC8vIGNhbGVuZGFyIGRheSBvZiB0aGUgbW9udGgpIGJhY2t3YXJkIHRvIHRoZSBwcmV2aW91cyBidXNpbmVzcyBkYXkgd2hlbiBpdAogICAgLy8gZmFsbHMgb24gYSB3ZWVrZW5kIG9yIGhvbGlkYXksIHRoZW4ga2VlcHMgdGhlIGVmZmVjdGl2ZSBkYXRlcyBhcyBhIHNldC4KICAgIGxldCBQYXlyb2xsRGF0ZXMgPSB0b3NjYWxhcigKICAgICAgICBZZWFyQ2FsZW5kYXIKICAgICAgICB8IHdoZXJlIGRheW9mbW9udGgoX0NhbERheSkgPT0gMjUgb3IgX0NhbERheSA9PSBzdGFydG9mZGF5KGVuZG9mbW9udGgoX0NhbERheSkpCiAgICAgICAgfCBwcm9qZWN0IF9BbmNob3JEYXRlID0gX0NhbERheQogICAgICAgIHwgbXYtZXhwYW5kIF9PZmZzZXQgPSByYW5nZSgwLCAxNCwgMSkgdG8gdHlwZW9mKGxvbmcpCiAgICAgICAgfCBleHRlbmQgX0NhbmRpZGF0ZSA9IGRhdGV0aW1lX2FkZCgiZGF5IiwgLV9PZmZzZXQsIF9BbmNob3JEYXRlKQogICAgICAgIHwgZXh0ZW5kIF9DYW5kS2V5ID0gZm9ybWF0X2RhdGV0aW1lKF9DYW5kaWRhdGUsICJ5eXl5LU1NLWRkIikKICAgICAgICB8IGV4dGVuZCBfQ2FuZElzQnVzaW5lc3NEYXkgPQogICAgICAgICAgICBub3QoZGF5b2Z3ZWVrKF9DYW5kaWRhdGUpIGluICgwZCwgNmQpKQogICAgICAgICAgICBhbmQgbm90KGJhZ19oYXNfa2V5KEhvbGlkYXlCeURhdGUsIF9DYW5kS2V5KSkKICAgICAgICB8IHdoZXJlIF9DYW5kSXNCdXNpbmVzc0RheQogICAgICAgIHwgc3VtbWFyaXplIGFyZ19taW4oX09mZnNldCwgX0NhbmRpZGF0ZSkgYnkgX0FuY2hvckRhdGUKICAgICAgICB8IHN1bW1hcml6ZSBQYXlyb2xsU2V0ID0gbWFrZV9zZXQoZm9ybWF0X2RhdGV0aW1lKF9DYW5kaWRhdGUsICJ5eXl5LU1NLWRkIikpCiAgICApOwogICAgLy8gTm90ZSA4ZDogTG9uZ1dlZWtlbmREYXRlcyBmaW5kcyBtYXhpbWFsIHJ1bnMgb2YgY29uc2VjdXRpdmUgbm9uLWJ1c2luZXNzCiAgICAvLyBkYXlzLiBBIHJ1bm5pbmcgY291bnQgb2YgYnVzaW5lc3MgZGF5cyBob2xkcyBvbmUgaWQgYWNyb3NzIGVhY2ggZ2FwLCBzbyBhCiAgICAvLyBydW4gb2YgdGhyZWUgb3IgbW9yZSBub24tYnVzaW5lc3MgZGF5cyBtYXJrcyBldmVyeSBkYXRlIGl0IGNvbnRhaW5zLgogICAgbGV0IExvbmdXZWVrZW5kRGF0ZXMgPSB0b3NjYWxhcigKICAgICAgICBZZWFyQ2FsZW5kYXIKICAgICAgICB8IG9yZGVyIGJ5IF9DYWxEYXkgYXNjCiAgICAgICAgfCBleHRlbmQgX0J1c2luZXNzUnVuSWQgPSByb3dfY3Vtc3VtKHRvaW50KF9DYWxJc0J1c2luZXNzRGF5KSkKICAgICAgICB8IHdoZXJlIG5vdChfQ2FsSXNCdXNpbmVzc0RheSkKICAgICAgICB8IHN1bW1hcml6ZSBfUnVuTGVuZ3RoID0gY291bnQoKSwgX1J1bkRhdGVzID0gbWFrZV9saXN0KF9DYWxLZXkpIGJ5IF9CdXNpbmVzc1J1bklkCiAgICAgICAgfCB3aGVyZSBfUnVuTGVuZ3RoID49IDMKICAgICAgICB8IG12LWV4cGFuZCBfUnVuRGF0ZSA9IF9SdW5EYXRlcyB0byB0eXBlb2Yoc3RyaW5nKQogICAgICAgIHwgc3VtbWFyaXplIExvbmdXZWVrZW5kU2V0ID0gbWFrZV9zZXQoX1J1bkRhdGUpCiAgICApOwogICAgLy8gTm90ZSA5OiBQcm9jZXNzaW5nIHN0YXJ0cyB3aXRoIHRoZSBCcm9uemUgcm93cyBzdXBwbGllZCB0byB0aGlzIGZ1bmN0aW9uLgogICAgRGVwb3NpdE1vdmVtZW50CiAgICAvLyBOb3RlIDliOiBOb3JtYWxpemUgQ2hhbm5lbCAtIHNvdXJjZSBjYW4gY2FycnkgbGVhZGluZy90cmFpbGluZyB3aGl0ZXNwYWNlLAogICAgLy8gd2hpY2ggYnJlYWtzIGV4YWN0IG1hdGNoZXMgKE1TWUcvU1lTRyBleGNsdXNpb24sIElzUmV0YWlsLCBDaGFubmVsX0dyb3VwKS4KICAgIHwgZXh0ZW5kIENoYW5uZWwgPSB0cmltKEAiXHMiLCB0b3N0cmluZyhDaGFubmVsKSkKICAgIC8vIE5vdGUgMTA6IERhdGUgaXMgaW50ZXJwcmV0ZWQgYXMgQmFuZ2tvayBsb2NhbCBjYWxlbmRhciB0aW1lLiBUaW1lIHN0b3JlcwogICAgLy8gYW4gaW50ZXJ2YWwsIHNvIG9ubHkgaXRzIEhIOm1tIHN0YXJ0IHZhbHVlIGlzIGV4dHJhY3RlZCBmb3IgY2xhc3NpZmljYXRpb24uCiAgICB8IGV4dGVuZAogICAgICAgIExvY2FsRGF0ZSA9IHN0YXJ0b2ZkYXkoRGF0ZSksCiAgICAgICAgX1RpbWVTdGFydFRleHQgPSBleHRyYWN0KEAiXihbMC05XXsyfTpbMC05XXsyfSktWzAtOV17Mn06WzAtOV17Mn0kIiwgMSwgVGltZSkKICAgIC8vIE5vdGUgMTE6IEFwcGVuZGluZyBzZWNvbmRzIGNvbnZlcnRzIEhIOm1tIGludG8gYSB0aW1lc3BhbiB0aGF0IGNhbiBiZQogICAgLy8gY29tcGFyZWQgd2l0aCB0aGUgU3RhcnRUaW1lIGFuZCBFbmRUaW1lIHZhbHVlcyBmcm9tIHRoZSB3aW5kb3cgcmVmZXJlbmNlLgogICAgfCBleHRlbmQgTG9jYWxUaW1lT2ZEYXkgPSB0b3RpbWVzcGFuKHN0cmNhdChfVGltZVN0YXJ0VGV4dCwgIjowMCIpKQogICAgfCBleHRlbmQgTG9jYWxEYXRlVGltZSA9IExvY2FsRGF0ZSArIExvY2FsVGltZU9mRGF5CiAgICAvLyBOb3RlIDEyOiBLUUwgZGF5b2Z3ZWVrIHJldHVybnMgU3VuZGF5IGFzIDBkIGFuZCBTYXR1cmRheSBhcyA2ZC4KICAgIHwgZXh0ZW5kCiAgICAgICAgSXNXZWVrZW5kID0gZGF5b2Z3ZWVrKExvY2FsRGF0ZSkgaW4gKDBkLCA2ZCksCiAgICAgICAgX0xvY2FsRGF0ZUtleSA9IGZvcm1hdF9kYXRldGltZShMb2NhbERhdGUsICJ5eXl5LU1NLWRkIikKICAgIC8vIE5vdGUgMTM6IFRoZSBkYXRlIGtleSBjaGVja3MgaG9saWRheSBtZW1iZXJzaGlwIGFuZCByZXRyaWV2ZXMgaXRzIG5hbWUKICAgIC8vIHdpdGhvdXQgam9pbmluZyBlYWNoIERlcG9zaXRNb3ZlbWVudCByb3cgdG8gdGhlIGhvbGlkYXkgdGFibGUuCiAgICB8IGV4dGVuZAogICAgICAgIElzRmluYW5jaWFsSW5zdGl0dXRpb25Ib2xpZGF5ID0gYmFnX2hhc19rZXkoSG9saWRheUJ5RGF0ZSwgX0xvY2FsRGF0ZUtleSksCiAgICAgICAgSG9saWRheU5hbWUgPSB0b3N0cmluZyhIb2xpZGF5QnlEYXRlW19Mb2NhbERhdGVLZXldKQogICAgLy8gTm90ZSAxNDogQSBidXNpbmVzcyBkYXkgbXVzdCBwYXNzIGJvdGggY2FsZW5kYXIgY2hlY2tzLiBPcGVyYXRpbmctd2luZG93CiAgICAvLyBhc3NpZ25tZW50IGlzIGluZGVwZW5kZW50IGFuZCBhcHBsaWVzIHRvIGV2ZXJ5IHZhbGlkIHNvdXJjZSByb3cuCiAgICB8IGV4dGVuZCBJc0J1c2luZXNzRGF5ID0gbm90KElzV2Vla2VuZCkKICAgICAgICBhbmQgbm90KElzRmluYW5jaWFsSW5zdGl0dXRpb25Ib2xpZGF5KQogICAgLy8gTm90ZSAxNTogV2Vla2VuZCBoYXMgcHJlY2VkZW5jZSB3aGVuIGEgZGF0ZSBpcyBib3RoIGEgd2Vla2VuZCBhbmQgYSBsaXN0ZWQKICAgIC8vIGhvbGlkYXk7IG90aGVyd2lzZSB0aGUgZGF0ZSBpcyBjbGFzc2lmaWVkIGFzIGhvbGlkYXkgb3IgYnVzaW5lc3MgZGF5LgogICAgfCBleHRlbmQgRGF5Q2xhc3NpZmljYXRpb24gPSBjYXNlKAogICAgICAgIElzV2Vla2VuZCwgIldFRUtFTkQiLAogICAgICAgIElzRmluYW5jaWFsSW5zdGl0dXRpb25Ib2xpZGF5LCAiSE9MSURBWSIsCiAgICAgICAgIkJVU0lORVNTX0RBWSIpCiAgICAvLyBtdi1hcHBseSBldmFsdWF0ZXMgYWxsIHJlZmVyZW5jZSByYW5nZXMgaW5zaWRlIGVhY2ggc291cmNlIHJvdy4gVGhlIHN1bW1hcml6ZQogICAgLy8gcmV0dXJucyBvbmUgcmVzdWx0IHBlciBpbnB1dCByb3csIGluY2x1ZGluZyBtYWxmb3JtZWQgb3IgdW5tYXRjaGVkIHJvd3MuCiAgICAvLyBOb3RlIDE2OiBXaW5kb3cgcmFuZ2VzIGFyZSBoYWxmLW9wZW4gW1N0YXJ0VGltZSwgRW5kVGltZSksIHNvIGEgYm91bmRhcnkKICAgIC8vIHRpbWUgYmVsb25ncyB0byB0aGUgd2luZG93IHRoYXQgc3RhcnRzIHRoZXJlIGFuZCBuZXZlciB0byB0aGUgcHJldmlvdXMgb25lLgogICAgfCBtdi1hcHBseSBfV2luZG93ID0gV2luZG93cyB0byB0eXBlb2YoZHluYW1pYykgb24gKAogICAgICAgIGV4dGVuZAogICAgICAgICAgICBfV2luZG93U3RhcnQgPSB0b3RpbWVzcGFuKF9XaW5kb3dbIlN0YXJ0VGltZSJdKSwKICAgICAgICAgICAgX1dpbmRvd0VuZCA9IHRvdGltZXNwYW4oX1dpbmRvd1siRW5kVGltZSJdKQogICAgICAgIHwgZXh0ZW5kIF9Jc1dpbmRvd01hdGNoID0KICAgICAgICAgICAgaXNub3RudWxsKExvY2FsVGltZU9mRGF5KQogICAgICAgICAgICBhbmQgTG9jYWxUaW1lT2ZEYXkgPj0gX1dpbmRvd1N0YXJ0CiAgICAgICAgICAgIGFuZCBMb2NhbFRpbWVPZkRheSA8IF9XaW5kb3dFbmQKICAgICAgICAvLyBOb3RlIDE3OiBDb3VudGluZyBtYXRjaGVzIGRldGVjdHMgbWlzc2luZyBhbmQgb3ZlcmxhcHBpbmcgcmVmZXJlbmNlCiAgICAgICAgLy8gd2luZG93cy4gVGhlIG1hdGNoaW5nIGRlZmluaXRpb25zIGFyZSByZXRhaW5lZCBmb3IgZmllbGQgZXh0cmFjdGlvbi4KICAgICAgICB8IHN1bW1hcml6ZQogICAgICAgICAgICBXaW5kb3dNYXRjaENvdW50ID0gY291bnRpZihfSXNXaW5kb3dNYXRjaCksCiAgICAgICAgICAgIF9NYXRjaGVkV2luZG93cyA9IG1ha2VfbGlzdF9pZihfV2luZG93LCBfSXNXaW5kb3dNYXRjaCkKICAgICkKICAgIC8vIE5vdGUgMTg6IEluZGV4IHplcm8gaXMgc2FmZSB0byBpbnNwZWN0IGFzIGEgZHluYW1pYyB2YWx1ZS4gT3V0cHV0IHdpbmRvdwogICAgLy8gZmllbGRzIGFyZSBwb3B1bGF0ZWQgb25seSB3aGVuIGV4YWN0bHkgb25lIGRlZmluaXRpb24gbWF0Y2hlZC4KICAgIHwgZXh0ZW5kIF9NYXRjaGVkV2luZG93ID0gX01hdGNoZWRXaW5kb3dzWzBdCiAgICB8IGV4dGVuZAogICAgICAgIE9wZXJhdGluZ1dpbmRvd0NvZGUgPSBpZmYoV2luZG93TWF0Y2hDb3VudCA9PSAxLCB0b3N0cmluZyhfTWF0Y2hlZFdpbmRvd1siV2luZG93Q29kZSJdKSwgIiIpLAogICAgICAgIE9wZXJhdGluZ1dpbmRvd05hbWUgPSBpZmYoV2luZG93TWF0Y2hDb3VudCA9PSAxLCB0b3N0cmluZyhfTWF0Y2hlZFdpbmRvd1siV2luZG93TmFtZSJdKSwgIiIpLAogICAgICAgIE9wZXJhdGluZ1dpbmRvd1N0YXJ0VGltZSA9IGlmZihXaW5kb3dNYXRjaENvdW50ID09IDEsIHRvdGltZXNwYW4oX01hdGNoZWRXaW5kb3dbIlN0YXJ0VGltZSJdKSwgdGltZXNwYW4obnVsbCkpLAogICAgICAgIE9wZXJhdGluZ1dpbmRvd0VuZFRpbWUgPSBpZmYoV2luZG93TWF0Y2hDb3VudCA9PSAxLCB0b3RpbWVzcGFuKF9NYXRjaGVkV2luZG93WyJFbmRUaW1lIl0pLCB0aW1lc3BhbihudWxsKSksCiAgICAgICAgT3BlcmF0aW5nV2luZG93U29ydE9yZGVyID0gaWZmKFdpbmRvd01hdGNoQ291bnQgPT0gMSwgdG9pbnQoX01hdGNoZWRXaW5kb3dbIlNvcnRPcmRlciJdKSwgaW50KG51bGwpKSwKICAgICAgICAvLyBOb3RlIDE5OiBTdGF0dXMgcHJlY2VkZW5jZSByZXBvcnRzIG1hbGZvcm1lZCB0aW1lIGZpcnN0LCBmb2xsb3dlZCBieQogICAgICAgIC8vIG1pc3Npbmcgb3Igb3ZlcmxhcHBpbmcgd2luZG93IGRlZmluaXRpb25zIGZvciBldmVyeSBkYXkgY2xhc3NpZmljYXRpb24uCiAgICAgICAgQ2xhc3NpZmljYXRpb25TdGF0dXMgPSBjYXNlKAogICAgICAgICAgICBpc2VtcHR5KF9UaW1lU3RhcnRUZXh0KSwgIklOVkFMSURfVElNRV9GT1JNQVQiLAogICAgICAgICAgICBXaW5kb3dNYXRjaENvdW50ID09IDAsICJOT19XSU5ET1dfTUFUQ0giLAogICAgICAgICAgICBXaW5kb3dNYXRjaENvdW50ID4gMSwgIk1VTFRJUExFX1dJTkRPV19NQVRDSEVTIiwKICAgICAgICAgICAgIkNMQVNTSUZJRUQiKQogICAgLy8gTm90ZSAxOWI6IEV2ZW50IGZsYWdzIG1hcmsgY2FsZW5kYXIgZXZlbnRzIHRoYXQgc2hpZnQgZGVwb3NpdCBiZWhhdmlvdXIuCiAgICAvLyBNb250aC1lbmQgaXMgdGhlIGxhc3QgY2FsZW5kYXIgZGF5OyBwYXlyb2xsIGFuZCBsb25nLXdlZWtlbmQgbWVtYmVyc2hpcAogICAgLy8gY29tZSBmcm9tIHRoZSBwcmUtY29tcHV0ZWQgc2V0cy4gRXZlbnRGbGFnIGpvaW5zIHRoZSBhY3RpdmUgZXZlbnRzIHdpdGggYQogICAgLy8gY29tbWEsIG9yIHJlcG9ydHMgTk9STUFMIHdoZW4gbm9uZSBhcHBseS4KICAgIHwgZXh0ZW5kCiAgICAgICAgSXNNb250aEVuZCA9IExvY2FsRGF0ZSA9PSBzdGFydG9mZGF5KGVuZG9mbW9udGgoTG9jYWxEYXRlKSksCiAgICAgICAgSXNQYXlyb2xsID0gc2V0X2hhc19lbGVtZW50KFBheXJvbGxEYXRlcywgX0xvY2FsRGF0ZUtleSksCiAgICAgICAgSXNMb25nV2Vla2VuZCA9IHNldF9oYXNfZWxlbWVudChMb25nV2Vla2VuZERhdGVzLCBfTG9jYWxEYXRlS2V5KQogICAgfCBleHRlbmQgX0V2ZW50TGlzdCA9IHNldF9kaWZmZXJlbmNlKHBhY2tfYXJyYXkoCiAgICAgICAgICAgIGlmZihJc01vbnRoRW5kLCAiTU9OVEhfRU5EIiwgIiIpLAogICAgICAgICAgICBpZmYoSXNQYXlyb2xsLCAiUEFZUk9MTCIsICIiKSwKICAgICAgICAgICAgaWZmKElzTG9uZ1dlZWtlbmQsICJMT05HX1dFRUtFTkQiLCAiIikpLCBkeW5hbWljKFsiIl0pKQogICAgfCBleHRlbmQgRXZlbnRGbGFnID0gaWZmKGFycmF5X2xlbmd0aChfRXZlbnRMaXN0KSA9PSAwLCAiTk9STUFMIiwgc3RyY2F0X2FycmF5KF9FdmVudExpc3QsICIsIikpCiAgICAvLyBOb3RlIDIwOiBUaGUgZmluYWwgcHJvamVjdGlvbiByZW1vdmVzIHRlbXBvcmFyeSB1bmRlcnNjb3JlLXByZWZpeGVkIGZpZWxkcwogICAgLy8gYW5kIGZpeGVzIHRoZSBleGFjdCBjb2x1bW4gb3JkZXIgcmVxdWlyZWQgYnkgRGVwb3NpdE1vdmVtZW50Q2xhc3NpZmllZC4KICAgIHwgcHJvamVjdAogICAgICAgIERhdGUsIFRpbWUsIFByb2R1Y3QsIENoYW5uZWwsIENoYW5uZWxfR3JvdXAsCiAgICAgICAgQ3JlZGl0X0Ftb3VudCwgRGViaXRfQW1vdW50LCBOZXRfQW1vdW50LAogICAgICAgIENyZWRpdF9UcmFuc2FjdGlvbiwgRGViaXRfVHJhbnNhY3Rpb24sIFRvdGFsX1RyYW5zYWN0aW9uLAogICAgICAgIGxvYWRfdHMsIGZpbGVfbmFtZSwgcGlwZWxpbmVfbmFtZSwgcGlwZWxpbmVfcnVuaWQsCiAgICAgICAgTG9jYWxEYXRlLCBMb2NhbERhdGVUaW1lLCBMb2NhbFRpbWVPZkRheSwKICAgICAgICBJc1dlZWtlbmQsIElzRmluYW5jaWFsSW5zdGl0dXRpb25Ib2xpZGF5LCBJc0J1c2luZXNzRGF5LAogICAgICAgIERheUNsYXNzaWZpY2F0aW9uLCBIb2xpZGF5TmFtZSwKICAgICAgICBPcGVyYXRpbmdXaW5kb3dDb2RlLCBPcGVyYXRpbmdXaW5kb3dOYW1lLAogICAgICAgIE9wZXJhdGluZ1dpbmRvd1N0YXJ0VGltZSwgT3BlcmF0aW5nV2luZG93RW5kVGltZSwgT3BlcmF0aW5nV2luZG93U29ydE9yZGVyLAogICAgICAgIFdpbmRvd01hdGNoQ291bnQsIENsYXNzaWZpY2F0aW9uU3RhdHVzLAogICAgICAgIElzTW9udGhFbmQsIElzUGF5cm9sbCwgSXNMb25nV2Vla2VuZCwgRXZlbnRGbGFnCn0=')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Check Silver Transformation Version"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Check Silver Transformation Version').output.count),0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "Silver transformation changed since deployment. Regenerate the CR01 preview."
+              },
+              "name": "Validate Silver Transformation Version Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Silver Transformation Version",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Preview Existing Silver Classification",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Silver Transformation Version"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create-or-alter function CR01Test_06622392_CR01_PreviewSilver(SourceRows:(Date:datetime,Time:string,Product:string,Channel:string,Channel_Group:string,Credit_Amount:decimal,Debit_Amount:decimal,Net_Amount:decimal,Credit_Transaction:long,Debit_Transaction:long,Total_Transaction:long,load_ts:datetime,file_name:string,pipeline_name:string,pipeline_runid:string)) {\n    // Note 1: The function has no parameters because the update policy supplies\n    // the newly ingested rows through the SourceRows source table below.\n    //\n    // Note 2: Reference tables are reduced to scalar dynamic values once per\n    // function execution, then reused while every source row is classified.\n    // A scalar property bag avoids a join in the update-policy query. Fabric\n    // otherwise requires streaming ingestion to be disabled on the source table.\n    //\n    // Note 3: These boundaries form [January 1 this year, January 1 next year).\n    // The half-open range includes every instant in the current execution year.\n    let CurrentYearStart = startofyear(now());\n    let NextYearStart = datetime_add(\"year\", 1, CurrentYearStart);\n    // Note 3b: The event-flag calendar spans a small pad on each side of the year\n    // so long-weekend runs and payroll shifts that cross the boundary resolve\n    // correctly. Padded dates outside the current year are never emitted.\n    let CalendarStart = datetime_add(\"day\", -3, CurrentYearStart);\n    let CalendarEnd = datetime_add(\"day\", 3, NextYearStart);\n    // Note 4: HolidayByDate becomes a property bag such as\n    // {\"2026-01-01\":\"New Year's Day\"}, enabling a lookup by local date key.\n    let HolidayByDate = toscalar(\n        ThailandFinancialInstitutionHoliday\n        // Note 5: Filter before summarize so holidays outside the current year\n        // do not consume aggregation memory or participate in classification.\n        | where HolidayDate >= CalendarStart\n            and HolidayDate < CalendarEnd\n        // Note 6: Normalize timestamps to dates and choose one deterministic\n        // name if the reference table contains duplicate rows for the same day.\n        | summarize HolidayName = min(HolidayName)\n            by HolidayDate = startofday(HolidayDate)\n        | extend HolidayDateKey = format_datetime(HolidayDate, \"yyyy-MM-dd\")\n        // Note 7: make_bag creates the date-to-name dictionary used later by\n        // bag_has_key and indexed lookup operations.\n        | summarize Holidays = make_bag(bag_pack(HolidayDateKey, HolidayName))\n    );\n    // Note 8: Windows becomes one ordered dynamic array containing all operating\n    // window definitions. SortOrder keeps the reference-table sequence stable.\n    let Windows = toscalar(\n        OperatingWindowsTimes\n        | order by SortOrder asc\n        | summarize WindowDefinitions = make_list(pack(\n            \"WindowCode\", WindowCode,\n            \"WindowName\", WindowName,\n            \"StartTime\", StartTime,\n            \"EndTime\", EndTime,\n            \"SortOrder\", SortOrder))\n    );\n    // Note 8b: YearCalendar enumerates every local date in the padded year and\n    // flags weekends and holidays so business days can be derived deterministically.\n    let YearCalendar =\n        range _CalDay from CalendarStart to datetime_add(\"day\", -1, CalendarEnd) step 1d\n        | extend _CalKey = format_datetime(_CalDay, \"yyyy-MM-dd\")\n        | extend _CalIsWeekend = dayofweek(_CalDay) in (0d, 6d)\n        | extend _CalIsHoliday = bag_has_key(HolidayByDate, _CalKey)\n        | extend _CalIsBusinessDay = not(_CalIsWeekend) and not(_CalIsHoliday);\n    // Note 8c: PayrollDates resolves each scheduled payday (the 25th and the last\n    // calendar day of the month) backward to the previous business day when it\n    // falls on a weekend or holiday, then keeps the effective dates as a set.\n    let PayrollDates = toscalar(\n        YearCalendar\n        | where dayofmonth(_CalDay) == 25 or _CalDay == startofday(endofmonth(_CalDay))\n        | project _AnchorDate = _CalDay\n        | mv-expand _Offset = range(0, 14, 1) to typeof(long)\n        | extend _Candidate = datetime_add(\"day\", -_Offset, _AnchorDate)\n        | extend _CandKey = format_datetime(_Candidate, \"yyyy-MM-dd\")\n        | extend _CandIsBusinessDay =\n            not(dayofweek(_Candidate) in (0d, 6d))\n            and not(bag_has_key(HolidayByDate, _CandKey))\n        | where _CandIsBusinessDay\n        | summarize arg_min(_Offset, _Candidate) by _AnchorDate\n        | summarize PayrollSet = make_set(format_datetime(_Candidate, \"yyyy-MM-dd\"))\n    );\n    // Note 8d: LongWeekendDates finds maximal runs of consecutive non-business\n    // days. A running count of business days holds one id across each gap, so a\n    // run of three or more non-business days marks every date it contains.\n    let LongWeekendDates = toscalar(\n        YearCalendar\n        | order by _CalDay asc\n        | extend _BusinessRunId = row_cumsum(toint(_CalIsBusinessDay))\n        | where not(_CalIsBusinessDay)\n        | summarize _RunLength = count(), _RunDates = make_list(_CalKey) by _BusinessRunId\n        | where _RunLength >= 3\n        | mv-expand _RunDate = _RunDates to typeof(string)\n        | summarize LongWeekendSet = make_set(_RunDate)\n    );\n    // Note 9: Processing starts with the Bronze rows supplied to this function.\n    SourceRows\n    // Note 9b: Normalize Channel - source can carry leading/trailing whitespace,\n    // which breaks exact matches (MSYG/SYSG exclusion, IsRetail, Channel_Group).\n    | extend Channel = trim(@\"\\s\", tostring(Channel))\n    // Note 10: Date is interpreted as Bangkok local calendar time. Time stores\n    // an interval, so only its HH:mm start value is extracted for classification.\n    | extend\n        LocalDate = startofday(Date),\n        _TimeStartText = extract(@\"^([0-9]{2}:[0-9]{2})-[0-9]{2}:[0-9]{2}$\", 1, Time)\n    // Note 11: Appending seconds converts HH:mm into a timespan that can be\n    // compared with the StartTime and EndTime values from the window reference.\n    | extend LocalTimeOfDay = totimespan(strcat(_TimeStartText, \":00\"))\n    | extend LocalDateTime = LocalDate + LocalTimeOfDay\n    // Note 12: KQL dayofweek returns Sunday as 0d and Saturday as 6d.\n    | extend\n        IsWeekend = dayofweek(LocalDate) in (0d, 6d),\n        _LocalDateKey = format_datetime(LocalDate, \"yyyy-MM-dd\")\n    // Note 13: The date key checks holiday membership and retrieves its name\n    // without joining each SourceRows row to the holiday table.\n    | extend\n        IsFinancialInstitutionHoliday = bag_has_key(HolidayByDate, _LocalDateKey),\n        HolidayName = tostring(HolidayByDate[_LocalDateKey])\n    // Note 14: A business day must pass both calendar checks. Operating-window\n    // assignment is independent and applies to every valid source row.\n    | extend IsBusinessDay = not(IsWeekend)\n        and not(IsFinancialInstitutionHoliday)\n    // Note 15: Weekend has precedence when a date is both a weekend and a listed\n    // holiday; otherwise the date is classified as holiday or business day.\n    | extend DayClassification = case(\n        IsWeekend, \"WEEKEND\",\n        IsFinancialInstitutionHoliday, \"HOLIDAY\",\n        \"BUSINESS_DAY\")\n    // mv-apply evaluates all reference ranges inside each source row. The summarize\n    // returns one result per input row, including malformed or unmatched rows.\n    // Note 16: Window ranges are half-open [StartTime, EndTime), so a boundary\n    // time belongs to the window that starts there and never to the previous one.\n    | mv-apply _Window = Windows to typeof(dynamic) on (\n        extend\n            _WindowStart = totimespan(_Window[\"StartTime\"]),\n            _WindowEnd = totimespan(_Window[\"EndTime\"])\n        | extend _IsWindowMatch =\n            isnotnull(LocalTimeOfDay)\n            and LocalTimeOfDay >= _WindowStart\n            and LocalTimeOfDay < _WindowEnd\n        // Note 17: Counting matches detects missing and overlapping reference\n        // windows. The matching definitions are retained for field extraction.\n        | summarize\n            WindowMatchCount = countif(_IsWindowMatch),\n            _MatchedWindows = make_list_if(_Window, _IsWindowMatch)\n    )\n    // Note 18: Index zero is safe to inspect as a dynamic value. Output window\n    // fields are populated only when exactly one definition matched.\n    | extend _MatchedWindow = _MatchedWindows[0]\n    | extend\n        OperatingWindowCode = iff(WindowMatchCount == 1, tostring(_MatchedWindow[\"WindowCode\"]), \"\"),\n        OperatingWindowName = iff(WindowMatchCount == 1, tostring(_MatchedWindow[\"WindowName\"]), \"\"),\n        OperatingWindowStartTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow[\"StartTime\"]), timespan(null)),\n        OperatingWindowEndTime = iff(WindowMatchCount == 1, totimespan(_MatchedWindow[\"EndTime\"]), timespan(null)),\n        OperatingWindowSortOrder = iff(WindowMatchCount == 1, toint(_MatchedWindow[\"SortOrder\"]), int(null)),\n        // Note 19: Status precedence reports malformed time first, followed by\n        // missing or overlapping window definitions for every day classification.\n        ClassificationStatus = case(\n            isempty(_TimeStartText), \"INVALID_TIME_FORMAT\",\n            WindowMatchCount == 0, \"NO_WINDOW_MATCH\",\n            WindowMatchCount > 1, \"MULTIPLE_WINDOW_MATCHES\",\n            \"CLASSIFIED\")\n    // Note 19b: Event flags mark calendar events that shift deposit behaviour.\n    // Month-end is the last calendar day; payroll and long-weekend membership\n    // come from the pre-computed sets. EventFlag joins the active events with a\n    // comma, or reports NORMAL when none apply.\n    | extend\n        IsMonthEnd = LocalDate == startofday(endofmonth(LocalDate)),\n        IsPayroll = set_has_element(PayrollDates, _LocalDateKey),\n        IsLongWeekend = set_has_element(LongWeekendDates, _LocalDateKey)\n    | extend _EventList = set_difference(pack_array(\n            iff(IsMonthEnd, \"MONTH_END\", \"\"),\n            iff(IsPayroll, \"PAYROLL\", \"\"),\n            iff(IsLongWeekend, \"LONG_WEEKEND\", \"\")), dynamic([\"\"]))\n    | extend EventFlag = iff(array_length(_EventList) == 0, \"NORMAL\", strcat_array(_EventList, \",\"))\n    // Note 20: The final projection removes temporary underscore-prefixed fields\n    // and fixes the exact column order required by CR01Test_06622392_DepositMovementClassified.\n    | project\n        Date, Time, Product, Channel, Channel_Group,\n        Credit_Amount, Debit_Amount, Net_Amount,\n        Credit_Transaction, Debit_Transaction, Total_Transaction,\n        load_ts, file_name, pipeline_name, pipeline_runid,\n        LocalDate, LocalDateTime, LocalTimeOfDay,\n        IsWeekend, IsFinancialInstitutionHoliday, IsBusinessDay,\n        DayClassification, HolidayName,\n        OperatingWindowCode, OperatingWindowName,\n        OperatingWindowStartTime, OperatingWindowEndTime, OperatingWindowSortOrder,\n        WindowMatchCount, ClassificationStatus,\n        IsMonthEnd, IsPayroll, IsLongWeekend, EventFlag\n}",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Preview Calendar Classification",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Preview Existing Silver Classification"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let preview=CR01Test_06622392_CR01_PreviewSilver(CR01Test_06622392_CR01_Stage_20261118);\r\nlet holidayDates=toscalar(ThailandFinancialInstitutionHoliday | summarize make_set(format_datetime(HolidayDate,'yyyy-MM-dd')));\r\nlet knownYears=toscalar(ThailandFinancialInstitutionHoliday | summarize make_set(getyear(HolidayDate)));\r\nunion\r\n    (preview | where ClassificationStatus!='CLASSIFIED' | project Problem=strcat(file_name,' ',ClassificationStatus)),\r\n    (preview | where IsFinancialInstitutionHoliday!=set_has_element(holidayDates,format_datetime(LocalDate,'yyyy-MM-dd'))\r\n        | project Problem=strcat(file_name,' holiday classification disagrees with reference')),\r\n    (CR01Test_06622392_CR01_Stage_20261118 | distinct Year=getyear(Date) | where not(set_has_element(knownYears,Year))\r\n        | project Problem=strcat('Holiday reference year missing: ',Year)),\r\n    (print StageRows=toscalar(CR01Test_06622392_CR01_Stage_20261118 | count),PreviewRows=toscalar(preview | count)\r\n        | where StageRows!=PreviewRows | project Problem='Silver preview is not row preserving')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Preview Calendar Classification"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Preview Calendar Classification').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Preview Calendar Classification has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Preview Calendar Classification Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Preview Calendar Classification",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Loaded File Coverage",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Preview Calendar Classification"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName)));\r\nunion (CR01Test_06622392_DepositMovement | project file_name), (CR01Test_06622392_DepositMovementClassified | project file_name)\r\n| where file_name startswith strcat('INTRADAY_SUMMARY_',format_datetime(datetime(2026-11-18)-1d,'yyyyMMdd'))\r\n    or file_name startswith strcat('INTRADAY_SUMMARY_',format_datetime(datetime(2026-11-18),'yyyyMMdd'))\r\n| extend t=toint(extract(@\"^INTRADAY_SUMMARY_\\d{8}_(\\d{4})_\",1,file_name)),\r\n    d=extract(@\"^INTRADAY_SUMMARY_(\\d{8})_\",1,file_name)\r\n| where isnull(t) or (d==format_datetime(datetime(2026-11-18)-1d,'yyyyMMdd') and t>=2230)\r\n    or (d==format_datetime(datetime(2026-11-18),'yyyyMMdd') and t<330)\r\n| where file_name !in (names)\r\n| distinct Problem=strcat(file_name,' is loaded but absent from the frozen manifest')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Loaded File Coverage"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Loaded File Coverage').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Loaded File Coverage has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Loaded File Coverage Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Loaded File Coverage",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Read Existing Gold Views",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Loaded File Coverage"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".show materialized-views | where Name in (\"CR01Test_06622392_mv_Summary_Product_Channel_Alert\",\"CR01Test_06622392_mv_EarlyWarning_Base\") | project Name,Query,SourceTable",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Check Existing Gold Definitions",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Read Existing Gold Views"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".show materialized-views | where SourceTable in ('CR01Test_06622392_DepositMovement','CR01Test_06622392_DepositMovementClassified') | summarize Present=count(),Mismatch=countif(Name !in (\"CR01Test_06622392_mv_Summary_Product_Channel_Alert\",\"CR01Test_06622392_mv_EarlyWarning_Base\") or (Name=='CR01Test_06622392_mv_Summary_Product_Channel_Alert' and Query!=base64_decode_tostring('Q1IwMVRlc3RfMDY2MjIzOTJfRGVwb3NpdE1vdmVtZW50DQogICAgfCBzdW1tYXJpemUNCiAgICAgICAgVGltZSAgICAgICAgICAgICAgID0gbWF4KFRpbWUpLA0KICAgICAgICBDcmVkaXRfQW1vdW50ICAgICAgPSBzdW0oQ3JlZGl0X0Ftb3VudCksDQogICAgICAgIERlYml0X0Ftb3VudCAgICAgICA9IHN1bShEZWJpdF9BbW91bnQpLA0KICAgICAgICBOZXRfQW1vdW50ICAgICAgICAgPSBzdW0oTmV0X0Ftb3VudCksDQogICAgICAgIENyZWRpdF9UcmFuc2FjdGlvbiA9IHN1bShDcmVkaXRfVHJhbnNhY3Rpb24pLA0KICAgICAgICBEZWJpdF9UcmFuc2FjdGlvbiAgPSBzdW0oRGViaXRfVHJhbnNhY3Rpb24pLA0KICAgICAgICBUb3RhbF9UcmFuc2FjdGlvbiAgPSBzdW0oVG90YWxfVHJhbnNhY3Rpb24pLA0KICAgICAgICBVcGRhdGVkQXRVdGMgICAgICAgPSBtYXgobG9hZF90cykNCiAgICAgICAgYnkgRGF0ZSwgUHJvZHVjdCwgQ2hhbm5lbCwgQ2hhbm5lbF9Hcm91cA==')) or (Name=='CR01Test_06622392_mv_EarlyWarning_Base' and Query!=base64_decode_tostring('Q1IwMVRlc3RfMDY2MjIzOTJfRGVwb3NpdE1vdmVtZW50Q2xhc3NpZmllZAogICAgLy8gT25seSByb3dzIHdpdGggYSB2YWxpZCBsb2NhbCB0aW1lIGNhbiBmYWxsIGludG8gYSAzMC1taW51dGUgYnVja2V0LgogICAgfCB3aGVyZSBpc25vdG51bGwoTG9jYWxEYXRlVGltZSkKICAgIC8vIE1haW4gY29uZGl0aW9uICMxOiBleGNsdWRlIE1TWUcgLyBTWVNHIGZyb20gZXZlcnkgY2FsY3VsYXRpb24uCiAgICB8IHdoZXJlIENoYW5uZWwgIWluICgiTVNZRyIsICJTWVNHIikKICAgIHwgZXh0ZW5kCiAgICAgICAgSXNSZXRhaWwgICAgPSBDaGFubmVsIGluICgiRU5FVCIsICJBVE0iLCAiQ0RNIiksCiAgICAgICAgQnVja2V0U3RhcnQgPSBiaW4oTG9jYWxEYXRlVGltZSwgMzBtKQogICAgfCBzdW1tYXJpemUKICAgICAgICBHcm9zc091dGZsb3cgPSBzdW0oRGViaXRfQW1vdW50KSwKICAgICAgICBDcmVkaXQgICAgICAgPSBzdW0oQ3JlZGl0X0Ftb3VudCksCiAgICAgICAgTmV0ICAgICAgICAgID0gc3VtKE5ldF9BbW91bnQpLAogICAgICAgIERlYml0VHhuICAgICA9IHN1bShEZWJpdF9UcmFuc2FjdGlvbiksCiAgICAgICAgVXBkYXRlZEF0VXRjID0gbWF4KGxvYWRfdHMpCiAgICAgICAgYnkgTG9jYWxEYXRlLCBCdWNrZXRTdGFydCwgRGF5Q2xhc3NpZmljYXRpb24sIEV2ZW50RmxhZywKICAgICAgICAgICBJc01vbnRoRW5kLCBJc1BheXJvbGwsIElzTG9uZ1dlZWtlbmQsIElzUmV0YWls')) or IsEnabled!=true or AutoUpdateSchema!=false or isnotnull(Lookback) or Folder!='Gold' or DocString!='')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Check Existing Gold Definitions"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@or(not(equals(int(activity('Check Existing Gold Definitions').output.value[0].Present),2)),not(equals(int(activity('Check Existing Gold Definitions').output.value[0].Mismatch),0)))",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "Gold definitions changed since deployment. Regenerate and review the CR01 artifacts."
+              },
+              "name": "Validate Gold Baseline Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Gold Baseline",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Check retention mv_Summary_Product_Channel_Alert",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Gold Baseline"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".show materialized-view CR01Test_06622392_mv_Summary_Product_Channel_Alert policy retention | where Policy!=base64_decode_tostring('bnVsbA==')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Check retention mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Check retention mv_Summary_Product_Channel_Alert').output.count),0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "A Gold policy changed since deployment. Stop and regenerate the restoration baseline."
+              },
+              "name": "Validate retention mv_Summary_Product_Channel_Al Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate retention mv_Summary_Product_Channel_Alert",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Check caching mv_Summary_Product_Channel_Alert",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate retention mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".show materialized-view CR01Test_06622392_mv_Summary_Product_Channel_Alert policy caching | where Policy!=base64_decode_tostring('bnVsbA==')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Check caching mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Check caching mv_Summary_Product_Channel_Alert').output.count),0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "A Gold policy changed since deployment. Stop and regenerate the restoration baseline."
+              },
+              "name": "Validate caching mv_Summary_Product_Channel_Aler Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate caching mv_Summary_Product_Channel_Alert",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Check retention mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate caching mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".show materialized-view CR01Test_06622392_mv_EarlyWarning_Base policy retention | where Policy!=base64_decode_tostring('bnVsbA==')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Check retention mv_EarlyWarning_Base"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Check retention mv_EarlyWarning_Base').output.count),0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "A Gold policy changed since deployment. Stop and regenerate the restoration baseline."
+              },
+              "name": "Validate retention mv_EarlyWarning_Base Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate retention mv_EarlyWarning_Base",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Check caching mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate retention mv_EarlyWarning_Base"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".show materialized-view CR01Test_06622392_mv_EarlyWarning_Base policy caching | where Policy!=base64_decode_tostring('ew0KICAiRGF0YUhvdFNwYW4iOiB7DQogICAgIlZhbHVlIjogIjkwLjAwOjAwOjAwIg0KICB9LA0KICAiSW5kZXhIb3RTcGFuIjogew0KICAgICJWYWx1ZSI6ICI5MC4wMDowMDowMCINCiAgfQ0KfQ==')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Check caching mv_EarlyWarning_Base"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Check caching mv_EarlyWarning_Base').output.count),0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "A Gold policy changed since deployment. Stop and regenerate the restoration baseline."
+              },
+              "name": "Validate caching mv_EarlyWarning_Base Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate caching mv_EarlyWarning_Base",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Backup Target Bronze",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate caching mv_EarlyWarning_Base"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_CR01_BackupBronze_20261118 <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_DepositMovement | where file_name in (names)",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Backup Target Silver",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Backup Target Bronze"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_CR01_BackupSilver_20261118 <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_DepositMovementClassified | where file_name in (names)",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Backup Both EWI Dates",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Backup Target Silver"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_CR01_BackupEwi_20261118 <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_DepositMovementEarlyWarning | where Date_ICT in (format_datetime(datetime(2026-11-18)-1d,'yyyy-MM-dd'),'2026-11-18')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Snapshot Unrelated DepositMovement",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Backup Both EWI Dates"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_CR01_UnrelatedBronze_20261118 <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_DepositMovement | where file_name !in (names) | summarize Copies=count() by Fingerprint=hash_sha256(tostring(pack_array(Date,Time,Product,Channel,Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction,load_ts,file_name,pipeline_name,pipeline_runid)))",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Snapshot Unrelated DepositMovementClassified",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Snapshot Unrelated DepositMovement"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set CR01Test_06622392_CR01_UnrelatedSilver_20261118 <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_DepositMovementClassified | where file_name !in (names) | summarize Copies=count() by Fingerprint=hash_sha256(tostring(pack_array(Date,Time,Product,Channel,Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction,load_ts,file_name,pipeline_name,pipeline_runid,LocalDate,LocalDateTime,LocalTimeOfDay,IsWeekend,IsFinancialInstitutionHoliday,IsBusinessDay,DayClassification,HolidayName,OperatingWindowCode,OperatingWindowName,OperatingWindowStartTime,OperatingWindowEndTime,OperatingWindowSortOrder,WindowMatchCount,ClassificationStatus,IsMonthEnd,IsPayroll,IsLongWeekend,EventFlag)))",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Hold Serving Visibility",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Snapshot Unrelated DepositMovementClassified"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-append CR01Test_06622392_CR01_PublishState <| print IsReady=false, ChangedAtUtc=now(), Owner='63ebb1ad-068d-47a1-b6ad-d0c4aff54892'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Drop mv_Summary_Product_Channel_Alert",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Hold Serving Visibility"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".drop materialized-view CR01Test_06622392_mv_Summary_Product_Channel_Alert",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Drop mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Drop mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".drop materialized-view CR01Test_06622392_mv_EarlyWarning_Base",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Delete Only Manifest Bronze",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Drop mv_EarlyWarning_Base"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".delete table CR01Test_06622392_DepositMovement records <| CR01Test_06622392_DepositMovement | where file_name in (\"INTRADAY_SUMMARY_20261117_2300_2330.CSV\",\"INTRADAY_SUMMARY_20261118_0000_0030.CSV\")",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Delete Only Manifest Silver",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Delete Only Manifest Bronze"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".delete table CR01Test_06622392_DepositMovementClassified records <| CR01Test_06622392_DepositMovementClassified | where file_name in (\"INTRADAY_SUMMARY_20261117_2300_2330.CSV\",\"INTRADAY_SUMMARY_20261118_0000_0030.CSV\")",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Empty Replacement Scope",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Delete Only Manifest Silver"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); union (CR01Test_06622392_DepositMovement | project file_name),(CR01Test_06622392_DepositMovementClassified | project file_name) | where file_name in (names) | project Problem=file_name",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Empty Replacement Scope"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Empty Replacement Scope').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Empty Replacement Scope has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Empty Replacement Scope Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Empty Replacement Scope",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Promote Frozen Overnight Snapshot",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Empty Replacement Scope"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-append CR01Test_06622392_DepositMovement <| CR01Test_06622392_CR01_Stage_20261118",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Promote Frozen Overnight Snapshot"
+          }
+        ],
+        "typeProperties": {
+          "activities": [
+            {
+              "type": "KustoQueryLanguage",
+              "linkedService": {
+                "name": "DepositMovement",
+                "properties": {
+                  "annotations": [],
+                  "type": "KustoDatabase",
+                  "typeProperties": {
+                    "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+                    "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+                    "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+                  }
+                }
+              },
+              "name": "Compute Replayed Row Mismatches",
+              "dependsOn": [],
+              "policy": {
+                "secureOutput": false,
+                "retry": 0,
+                "timeout": "0.01:00:00",
+                "secureInput": false
+              },
+              "typeProperties": {
+                "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); union (CR01Test_06622392_CR01_Stage_20261118 | summarize Expected=count() by file_name,Fingerprint=tostring(pack_array(Date,Time,Product,trim(@\"\\s\",Channel),Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction)) | join kind=fullouter (CR01Test_06622392_DepositMovement | where file_name in (names) | summarize Actual=count() by file_name,Fingerprint=tostring(pack_array(Date,Time,Product,trim(@\"\\s\",Channel),Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction))) on file_name,Fingerprint | where coalesce(Expected,0)!=coalesce(Actual,0) | project Problem=strcat('CR01Test_06622392_DepositMovement ',file_name,' business-row mismatch')),(CR01Test_06622392_CR01_Stage_20261118 | summarize Expected=count() by file_name,Fingerprint=tostring(pack_array(Date,Time,Product,trim(@\"\\s\",Channel),Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction)) | join kind=fullouter (CR01Test_06622392_DepositMovementClassified | where file_name in (names) | summarize Actual=count() by file_name,Fingerprint=tostring(pack_array(Date,Time,Product,trim(@\"\\s\",Channel),Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction))) on file_name,Fingerprint | where coalesce(Expected,0)!=coalesce(Actual,0) | project Problem=strcat('CR01Test_06622392_DepositMovementClassified ',file_name,' business-row mismatch'))",
+                "commandTimeout": "01:00:00"
+              }
+            },
+            {
+              "dependsOn": [
+                {
+                  "activity": "Compute Replayed Row Mismatches",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "waitTimeInSeconds": 5
+              },
+              "name": "Wait For Replay",
+              "type": "Wait"
+            }
+          ],
+          "expression": {
+            "value": "@equals(int(activity('Compute Replayed Row Mismatches').output.count),0)",
+            "type": "Expression"
+          },
+          "timeout": "0.00:30:00"
+        },
+        "name": "Wait For Bronze And Silver",
+        "type": "Until"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Silver Classification",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Wait For Bronze And Silver"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_DepositMovementClassified | where file_name in (names) and ClassificationStatus!='CLASSIFIED' | project Problem=strcat(file_name,' ',ClassificationStatus)",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Silver Classification"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Silver Classification').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Silver Classification has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Silver Classification Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Silver Classification",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Unrelated DepositMovement",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Silver Classification"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_CR01_UnrelatedBronze_20261118 | project Fingerprint,Before=Copies | join kind=fullouter (CR01Test_06622392_DepositMovement | where file_name !in (names) | summarize After=count() by Fingerprint=hash_sha256(tostring(pack_array(Date,Time,Product,Channel,Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction,load_ts,file_name,pipeline_name,pipeline_runid)))) on Fingerprint | where coalesce(Before,0)!=coalesce(After,0) | project Problem='Unrelated source rows changed'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Unrelated DepositMovement"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Unrelated DepositMovement').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Unrelated DepositMovement has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Unrelated DepositMovement Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Unrelated DepositMovement",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Unrelated DepositMovementClassified",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Unrelated DepositMovement"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let names=toscalar(print items=parse_json(base64_decode_tostring(\"W3siRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE3XzIzMDBfMjMzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9LHsiRmlsZU5hbWUiOiJJTlRSQURBWV9TVU1NQVJZXzIwMjYxMTE4XzAwMDBfMDAzMC5DU1YiLCJFeHBlY3RlZFJvd3MiOjF9XQ==\"))\r\n    | mv-expand items | summarize make_set(tostring(items.FileName))); CR01Test_06622392_CR01_UnrelatedSilver_20261118 | project Fingerprint,Before=Copies | join kind=fullouter (CR01Test_06622392_DepositMovementClassified | where file_name !in (names) | summarize After=count() by Fingerprint=hash_sha256(tostring(pack_array(Date,Time,Product,Channel,Channel_Group,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction,load_ts,file_name,pipeline_name,pipeline_runid,LocalDate,LocalDateTime,LocalTimeOfDay,IsWeekend,IsFinancialInstitutionHoliday,IsBusinessDay,DayClassification,HolidayName,OperatingWindowCode,OperatingWindowName,OperatingWindowStartTime,OperatingWindowEndTime,OperatingWindowSortOrder,WindowMatchCount,ClassificationStatus,IsMonthEnd,IsPayroll,IsLongWeekend,EventFlag)))) on Fingerprint | where coalesce(Before,0)!=coalesce(After,0) | project Problem='Unrelated source rows changed'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Unrelated DepositMovementClassified"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Unrelated DepositMovementClassified').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Unrelated DepositMovementClassified has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Unrelated DepositMovementClassified Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Unrelated DepositMovementClassified",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Rebuild mv_Summary_Product_Channel_Alert",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Unrelated DepositMovementClassified"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create materialized-view with (backfill=true,folder=\"Gold\",docstring=\"\") CR01Test_06622392_mv_Summary_Product_Channel_Alert on table CR01Test_06622392_DepositMovement { CR01Test_06622392_DepositMovement\r\n    | summarize\r\n        Time               = max(Time),\r\n        Credit_Amount      = sum(Credit_Amount),\r\n        Debit_Amount       = sum(Debit_Amount),\r\n        Net_Amount         = sum(Net_Amount),\r\n        Credit_Transaction = sum(Credit_Transaction),\r\n        Debit_Transaction  = sum(Debit_Transaction),\r\n        Total_Transaction  = sum(Total_Transaction),\r\n        UpdatedAtUtc       = max(load_ts)\r\n        by Date, Product, Channel, Channel_Group }",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Reconciled mv_Summary_Product_Channel_Alert",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Rebuild mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let expected=CR01Test_06622392_DepositMovement\r\n    | summarize\r\n        Time               = max(Time),\r\n        Credit_Amount      = sum(Credit_Amount),\r\n        Debit_Amount       = sum(Debit_Amount),\r\n        Net_Amount         = sum(Net_Amount),\r\n        Credit_Transaction = sum(Credit_Transaction),\r\n        Debit_Transaction  = sum(Debit_Transaction),\r\n        Total_Transaction  = sum(Total_Transaction),\r\n        UpdatedAtUtc       = max(load_ts)\r\n        by Date, Product, Channel, Channel_Group | summarize Expected=count() by Fingerprint=tostring(pack_array(Date,Product,Channel,Channel_Group,Time,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction,UpdatedAtUtc)); expected | join kind=fullouter (CR01Test_06622392_mv_Summary_Product_Channel_Alert | summarize Actual=count() by Fingerprint=tostring(pack_array(Date,Product,Channel,Channel_Group,Time,Credit_Amount,Debit_Amount,Net_Amount,Credit_Transaction,Debit_Transaction,Total_Transaction,UpdatedAtUtc))) on Fingerprint | where coalesce(Expected,0)!=coalesce(Actual,0) | project Problem='Gold MV does not reconcile with corrected source'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Reconciled mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Reconciled mv_Summary_Product_Channel_Alert').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Reconciled mv_Summary_Product_Channel_Alert has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Reconciled mv_Summary_Product_Channel_A Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Reconciled mv_Summary_Product_Channel_Alert",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Rebuild mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Reconciled mv_Summary_Product_Channel_Alert"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".create materialized-view with (backfill=true,folder=\"Gold\",docstring=\"\") CR01Test_06622392_mv_EarlyWarning_Base on table CR01Test_06622392_DepositMovementClassified { CR01Test_06622392_DepositMovementClassified\n    // Only rows with a valid local time can fall into a 30-minute bucket.\n    | where isnotnull(LocalDateTime)\n    // Main condition #1: exclude MSYG / SYSG from every calculation.\n    | where Channel !in (\"MSYG\", \"SYSG\")\n    | extend\n        IsRetail    = Channel in (\"ENET\", \"ATM\", \"CDM\"),\n        BucketStart = bin(LocalDateTime, 30m)\n    | summarize\n        GrossOutflow = sum(Debit_Amount),\n        Credit       = sum(Credit_Amount),\n        Net          = sum(Net_Amount),\n        DebitTxn     = sum(Debit_Transaction),\n        UpdatedAtUtc = max(load_ts)\n        by LocalDate, BucketStart, DayClassification, EventFlag,\n           IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail }",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Restore Caching mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Rebuild mv_EarlyWarning_Base"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".alter materialized-view CR01Test_06622392_mv_EarlyWarning_Base policy caching hot = 90d",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Reconciled mv_EarlyWarning_Base",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Restore Caching mv_EarlyWarning_Base"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let expected=CR01Test_06622392_DepositMovementClassified\n    // Only rows with a valid local time can fall into a 30-minute bucket.\n    | where isnotnull(LocalDateTime)\n    // Main condition #1: exclude MSYG / SYSG from every calculation.\n    | where Channel !in (\"MSYG\", \"SYSG\")\n    | extend\n        IsRetail    = Channel in (\"ENET\", \"ATM\", \"CDM\"),\n        BucketStart = bin(LocalDateTime, 30m)\n    | summarize\n        GrossOutflow = sum(Debit_Amount),\n        Credit       = sum(Credit_Amount),\n        Net          = sum(Net_Amount),\n        DebitTxn     = sum(Debit_Transaction),\n        UpdatedAtUtc = max(load_ts)\n        by LocalDate, BucketStart, DayClassification, EventFlag,\n           IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail | summarize Expected=count() by Fingerprint=tostring(pack_array(LocalDate,BucketStart,DayClassification,EventFlag,IsMonthEnd,IsPayroll,IsLongWeekend,IsRetail,GrossOutflow,Credit,Net,DebitTxn,UpdatedAtUtc)); expected | join kind=fullouter (CR01Test_06622392_mv_EarlyWarning_Base | summarize Actual=count() by Fingerprint=tostring(pack_array(LocalDate,BucketStart,DayClassification,EventFlag,IsMonthEnd,IsPayroll,IsLongWeekend,IsRetail,GrossOutflow,Credit,Net,DebitTxn,UpdatedAtUtc))) on Fingerprint | where coalesce(Expected,0)!=coalesce(Actual,0) | project Problem='Gold MV does not reconcile with corrected source'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Reconciled mv_EarlyWarning_Base"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Reconciled mv_EarlyWarning_Base').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Reconciled mv_EarlyWarning_Base has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Reconciled mv_EarlyWarning_Base Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Reconciled mv_EarlyWarning_Base",
+        "type": "IfCondition"
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Reconciled mv_EarlyWarning_Base"
+          }
+        ],
+        "typeProperties": {
+          "activities": [
+            {
+              "type": "KustoQueryLanguage",
+              "linkedService": {
+                "name": "DepositMovement",
+                "properties": {
+                  "annotations": [],
+                  "type": "KustoDatabase",
+                  "typeProperties": {
+                    "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+                    "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+                    "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+                  }
+                }
+              },
+              "name": "Read Gold Health",
+              "dependsOn": [],
+              "policy": {
+                "secureOutput": false,
+                "retry": 0,
+                "timeout": "0.01:00:00",
+                "secureInput": false
+              },
+              "typeProperties": {
+                "command": ".show materialized-views | where Name in (\"CR01Test_06622392_mv_Summary_Product_Channel_Alert\",\"CR01Test_06622392_mv_EarlyWarning_Base\") | summarize Present=count(),Unhealthy=countif(IsHealthy!=true or IsEnabled!=true)",
+                "commandTimeout": "01:00:00"
+              }
+            },
+            {
+              "dependsOn": [
+                {
+                  "activity": "Read Gold Health",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "waitTimeInSeconds": 5
+              },
+              "name": "Wait For Materialization",
+              "type": "Wait"
+            }
+          ],
+          "expression": {
+            "value": "@and(equals(int(activity('Read Gold Health').output.value[0].Present),2),equals(int(activity('Read Gold Health').output.value[0].Unhealthy),0))",
+            "type": "Expression"
+          },
+          "timeout": "0.01:00:00"
+        },
+        "name": "Wait For Healthy Gold Views",
+        "type": "Until"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute EWI Level Contract",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Wait For Healthy Gold Views"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| union (CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18)-1d)),(CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18))) | where isnull(Alert_Rank) or Alert_Rank<0 or Alert_Rank>3 or Alert_Level !in ('L0','L1','L2','L3') | project Problem='Invalid EWI level/rank before persistence'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute EWI Level Contract"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute EWI Level Contract').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 EWI Level Contract has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate EWI Level Contract Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate EWI Level Contract",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Delete Affected Persisted EWI Dates",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate EWI Level Contract"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".delete table CR01Test_06622392_DepositMovementEarlyWarning records <| CR01Test_06622392_DepositMovementEarlyWarning | where Date_ICT in (format_datetime(datetime(2026-11-18)-1d,'yyyy-MM-dd'),'2026-11-18')",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Recompute Both Complete EWI Dates",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Delete Affected Persisted EWI Dates"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-append CR01Test_06622392_DepositMovementEarlyWarning <| union (CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18)-1d)),(CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18))) | project Object_Id,Scope,Date_ICT,Bucket_Start,Bucket_Label,Alert_Time,WindowCode,WindowName,DayType,EventFlag,IsMonthEnd,IsPayroll,IsLongWeekend,IndicatorId,IndicatorKey,IndicatorName,Unit,Value,Direction,L1,L2,L3,Alert_Level,Alert_Rank=toint(Alert_Rank)",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Persisted EWI Grain",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Recompute Both Complete EWI Dates"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| CR01Test_06622392_DepositMovementEarlyWarning | where Date_ICT in (format_datetime(datetime(2026-11-18)-1d,'yyyy-MM-dd'),'2026-11-18') | summarize Copies=count() by Object_Id,Bucket_Start | where Copies!=1 | project Problem='Stored EWI grain is not one row per scope/indicator/bucket'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Persisted EWI Grain"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Persisted EWI Grain').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Persisted EWI Grain has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Persisted EWI Grain Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Persisted EWI Grain",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Compute Reconciled Persisted EWI",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Persisted EWI Grain"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_CR01_Checks <| let e=union (CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18)-1d)),(CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18))) | project Object_Id,Scope,Date_ICT,Bucket_Start,Bucket_Label,Alert_Time,WindowCode,WindowName,DayType,EventFlag,IsMonthEnd,IsPayroll,IsLongWeekend,IndicatorId,IndicatorKey,IndicatorName,Unit,Value,Direction,L1,L2,L3,Alert_Level,Alert_Rank=toint(Alert_Rank); e | summarize Expected=count() by Fingerprint=tostring(pack_array(Object_Id,Scope,Date_ICT,Bucket_Start,Bucket_Label,WindowCode,WindowName,DayType,EventFlag,IsMonthEnd,IsPayroll,IsLongWeekend,IndicatorId,IndicatorKey,IndicatorName,Unit,Value,Direction,L1,L2,L3,Alert_Level,Alert_Rank)) | join kind=fullouter (CR01Test_06622392_DepositMovementEarlyWarning | where Date_ICT in (format_datetime(datetime(2026-11-18)-1d,'yyyy-MM-dd'),'2026-11-18') | summarize Actual=count() by Fingerprint=tostring(pack_array(Object_Id,Scope,Date_ICT,Bucket_Start,Bucket_Label,WindowCode,WindowName,DayType,EventFlag,IsMonthEnd,IsPayroll,IsLongWeekend,IndicatorId,IndicatorKey,IndicatorName,Unit,Value,Direction,L1,L2,L3,Alert_Level,Alert_Rank))) on Fingerprint | where coalesce(Expected,0)!=coalesce(Actual,0) | project Problem='Persisted EWI mismatch'",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Compute Reconciled Persisted EWI"
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(int(activity('Compute Reconciled Persisted EWI').output.count), 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "dependsOn": [],
+              "typeProperties": {
+                "errorCode": "CR01_GUARD",
+                "message": "CR01 Reconciled Persisted EWI has mismatches. Keep the controller lock and investigate."
+              },
+              "name": "Validate Reconciled Persisted EWI Failed",
+              "type": "Fail"
+            }
+          ],
+          "ifFalseActivities": []
+        },
+        "name": "Validate Reconciled Persisted EWI",
+        "type": "IfCondition"
+      },
+      {
+        "type": "KustoQueryLanguage",
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "name": "Assert Known Corrected Amounts",
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Validate Reconciled Persisted EWI"
+          }
+        ],
+        "policy": {
+          "secureOutput": false,
+          "retry": 0,
+          "timeout": "0.01:00:00",
+          "secureInput": false
+        },
+        "typeProperties": {
+          "command": ".set-or-replace CR01Test_06622392_FinalChecks <|\r\n    let b=toscalar(CR01Test_06622392_DepositMovement | summarize sum(Net_Amount));\r\n    let n=toscalar(CR01Test_06622392_DepositMovement | count);\r\n    let s=toscalar(CR01Test_06622392_DepositMovementClassified | count);\r\n    let e=toscalar(CR01Test_06622392_DepositMovementEarlyWarning | count);\r\n    union\r\n        (print Problem=\"Wrong corrected Bronze/Silver/EWI total/count\" | where b!=decimal(195) or n!=3 or s!=3 or e!=72),\r\n        (CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-17))\r\n            | where Scope==\"TOTAL_BANK\" and IndicatorKey==\"AccumNetOutflow_MB\"\r\n            | summarize arg_max(Bucket_Start,Value),Rows=count()\r\n            | where Rows!=2 or abs(Value-0.000085)>1e-12 | project Problem=\"Previous-day cumulative EWI is stale\"),\r\n        (CR01Test_06622392_Gold_EarlyWarning(datetime(2026-11-18))\r\n            | where Scope==\"TOTAL_BANK\" and IndicatorKey==\"AccumNetOutflow_MB\"\r\n            | summarize arg_max(Bucket_Start,Value),Rows=count()\r\n            | where Rows!=1 or abs(Value-0.000110)>1e-12 | project Problem=\"Current-day cumulative EWI is stale\")",
+          "commandTimeout": "01:00:00"
+        }
+      },
+      {
+        "typeProperties": {
+          "ifTrueActivities": [
+            {
+              "typeProperties": {
+                "message": "Isolated corrected amounts or cumulative EWI did not match expectations.",
+                "errorCode": "CR01_TEST_FAILED"
+              },
+              "name": "Fail Isolated Refresh Test",
+              "type": "Fail"
+            }
+          ],
+          "expression": {
+            "type": "Expression",
+            "value": "@greater(int(activity('Assert Known Corrected Amounts').output.count),0)"
+          },
+          "ifFalseActivities": []
+        },
+        "dependsOn": [
+          {
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Assert Known Corrected Amounts"
+          }
+        ],
+        "name": "Require Exact Test Pass",
+        "type": "IfCondition"
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "Name": "mv_Summary_Product_Channel_Alert",
+    "SourceTable": "DepositMovement",
+    "Query": "DepositMovement\r\n    | summarize\r\n        Time               = max(Time),\r\n        Credit_Amount      = sum(Credit_Amount),\r\n        Debit_Amount       = sum(Debit_Amount),\r\n        Net_Amount         = sum(Net_Amount),\r\n        Credit_Transaction = sum(Credit_Transaction),\r\n        Debit_Transaction  = sum(Debit_Transaction),\r\n        Total_Transaction  = sum(Total_Transaction),\r\n        UpdatedAtUtc       = max(load_ts)\r\n        by Date, Product, Channel, Channel_Group",
+    "MaterializedTo": "2026-11-18T09:42:36.399233Z",
+    "LastRun": "2026-11-18T09:45:44.4385672Z",
+    "LastRunResult": "Completed",
+    "IsHealthy": 1,
+    "IsEnabled": 1,
+    "Status": "Active",
+    "Folder": "Gold",
+    "DocString": "",
+    "AutoUpdateSchema": 0,
+    "EffectiveDateTime": "2026-06-27T19:14:37.9356862Z",
+    "LastDefinitionUpdate": null,
+    "Lookback": null,
+    "LookbackColumn": "",
+    "RetentionPolicy": "null",
+    "CachingPolicy": "null"
+  },
+  {
+    "Name": "mv_EarlyWarning_Base",
+    "SourceTable": "DepositMovementClassified",
+    "Query": "DepositMovementClassified\n    // Only rows with a valid local time can fall into a 30-minute bucket.\n    | where isnotnull(LocalDateTime)\n    // Main condition #1: exclude MSYG / SYSG from every calculation.\n    | where Channel !in (\"MSYG\", \"SYSG\")\n    | extend\n        IsRetail    = Channel in (\"ENET\", \"ATM\", \"CDM\"),\n        BucketStart = bin(LocalDateTime, 30m)\n    | summarize\n        GrossOutflow = sum(Debit_Amount),\n        Credit       = sum(Credit_Amount),\n        Net          = sum(Net_Amount),\n        DebitTxn     = sum(Debit_Transaction),\n        UpdatedAtUtc = max(load_ts)\n        by LocalDate, BucketStart, DayClassification, EventFlag,\n           IsMonthEnd, IsPayroll, IsLongWeekend, IsRetail",
+    "MaterializedTo": "2026-11-18T09:42:36.399233Z",
+    "LastRun": "2026-11-18T09:45:44.4868848Z",
+    "LastRunResult": "Completed",
+    "IsHealthy": 1,
+    "IsEnabled": 1,
+    "Status": "Active",
+    "Folder": "Gold",
+    "DocString": "",
+    "AutoUpdateSchema": 0,
+    "EffectiveDateTime": "2026-09-17T05:55:42.0817617Z",
+    "LastDefinitionUpdate": "2026-09-17T10:05:02.0452048Z",
+    "Lookback": null,
+    "LookbackColumn": "",
+    "RetentionPolicy": "null",
+    "CachingPolicy": "{\r\n  \"DataHotSpan\": {\r\n    \"Value\": \"90.00:00:00\"\r\n  },\r\n  \"IndexHotSpan\": {\r\n    \"Value\": \"90.00:00:00\"\r\n  }\r\n}"
+  }
+]

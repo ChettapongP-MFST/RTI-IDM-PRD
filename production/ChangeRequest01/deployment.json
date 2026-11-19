@@ -1,0 +1,30 @@
+{
+  "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+  "workspaceName": "RTI-IDM-PRD",
+  "processingEnabled": false,
+  "activationBlockers": [
+    "ADLS source access returns Forbidden; an approved network/connection path is required.",
+    "EWI_AlertThreshold contains 864 rows for 288 distinct keys; owner-approved reference correction is required."
+  ],
+  "schedule": {
+    "pipelineId": "87c40325-c483-43d9-8eb7-1b2617487def",
+    "scheduleId": "e9d13768-d0d9-47b5-93ad-c2019fe897da",
+    "enabled": false,
+    "intervalMinutes": 30,
+    "timeZone": "SE Asia Standard Time",
+    "startDateTime": "2026-11-18T00:00:00",
+    "endDateTime": "2027-11-18T23:59:00"
+  },
+  "newPipelines": {
+    "pl_CR01_DepositMovement_24x7": "87c40325-c483-43d9-8eb7-1b2617487def",
+    "pl_CR01_DepositMovement_Discover": "8eb0f5ee-39f9-4c2b-839f-4656554657f3",
+    "pl_CR01_DepositMovement_OvernightRefresh": "4149a248-7145-4776-8734-79c9c76bb305",
+    "pl_CR01_Preflight": "e5fc7d7e-bfbf-4a66-9094-13918e88dde3",
+    "pl_CR01_IsolatedRefreshTest": "34e013e0-127c-40fb-9559-9dc0ee8e5229",
+    "pl_CR01_SQLControlTest": "f3db1900-5d89-4032-90ea-43988c0d04c8"
+  },
+  "unchangedExistingPipelines": {
+    "pl_ingest_DepositMovement": "0a74b40a-6e71-4a66-9cb1-d49a6d405d01",
+    "pl_ingest_DepositMovement_trigger_pipeline": "9ec17f10-cda1-498c-97fe-68a189f2f7fe"
+  }
+}

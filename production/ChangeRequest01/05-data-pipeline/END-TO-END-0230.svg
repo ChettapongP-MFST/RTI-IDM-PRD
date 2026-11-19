@@ -1,0 +1,204 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="2220" viewBox="0 0 1700 2220" style="max-width:100%;height:auto" role="img" aria-labelledby="diagramTitle diagramDescription">
+  <title id="diagramTitle">02:30 deposit refresh - setup and end-to-end runtime</title>
+  <desc id="diagramDescription">One-time preparation creates three Warehouse control tables, captures KQL dependencies, authors the new refresh pipeline, integrates the existing scheduler, and completes supervised acceptance. Every thirty minutes the scheduler freezes Bangkok time, acquires a shared lock, rejects incomplete work, and chooses either normal discovery or a due daily correction. The correction validates exactly six finalized files from yesterday 23:00 through today 02:00, backs up affected Bronze and Silver data, holds serving, drops the existing summary materialized view, deletes only selected Bronze and Silver rows, preserves old audit successes, reloads through the unchanged single-file child, reconciles source and unrelated records, rebuilds and reconciles the summary view, and marks the correction complete. The inspected PRD2 database has no EWI function, threshold table, base view, or persisted table; these are not required. Successful branches publish readiness and release the lock. Failures do not publish or release an acquired lock. The 03:00 batch is normal only after correction completes. This is a design diagram, not evidence of live execution.</desc>
+  <defs>
+    <marker id="flowArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#46627f"/>
+    </marker>
+    <marker id="refreshArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#087e8b"/>
+    </marker>
+    <marker id="errorArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#b13a43"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; fill: #17314f; }
+      .title { font-size: 32px; font-weight: 700; }
+      .subtitle { font-size: 18px; fill: #536982; }
+      .panelTitle { font-size: 23px; font-weight: 700; fill: #ffffff; }
+      .panelDetail { font-size: 16px; fill: #ffffff; }
+      .nodeTitle { font-size: 20px; font-weight: 650; }
+      .detail { font-size: 17px; fill: #395674; }
+      .small { font-size: 15px; fill: #46627f; }
+      .mono { font-family: Consolas, monospace; font-size: 14px; fill: #244666; }
+      .label { font-size: 17px; font-weight: 650; fill: #087e8b; }
+      .node { fill: #ffffff; stroke: #a9bfd6; stroke-width: 2; }
+      .refreshNode { fill: #f0fbfc; stroke: #168b97; stroke-width: 2; }
+      .reuseNode { fill: #edf8ef; stroke: #46845b; stroke-width: 2; }
+      .riskNode { fill: #fff6eb; stroke: #c18a42; stroke-width: 2; }
+      .edge { fill: none; stroke: #46627f; stroke-width: 2.5; marker-end: url(#flowArrow); }
+      .refreshEdge { fill: none; stroke: #087e8b; stroke-width: 2.5; marker-end: url(#refreshArrow); }
+      .failureEdge { fill: none; stroke: #b13a43; stroke-width: 2; stroke-dasharray: 6 6; marker-end: url(#errorArrow); }
+      .failureTrunk { fill: none; stroke: #b13a43; stroke-width: 2; stroke-dasharray: 6 6; }
+    </style>
+  </defs>
+  <rect width="1700" height="2220" fill="#f3f7fc"/>
+  <text x="34" y="52" class="title">02:30 refresh - end-to-end steps</text>
+  <text x="34" y="86" class="subtitle">From section 3 setup to normal batches, controlled replacement, downstream repair, and recovery</text>
+
+  <rect x="30" y="120" width="420" height="1525" rx="16" fill="#ffffff" stroke="#c6d5e5"/>
+  <path d="M46 120 H434 Q450 120 450 136 V193 H30 V136 Q30 120 46 120" fill="#315c96"/>
+  <text x="52" y="151" class="panelTitle">A. One-time preparation</text>
+  <text x="52" y="179" class="panelDetail">Build in the Fabric UI - do not execute deletes</text>
+
+  <path d="M240 390 V434" class="edge"/>
+  <path d="M240 560 V604" class="edge"/>
+  <path d="M240 740 V784" class="edge"/>
+  <path d="M240 920 V964" class="edge"/>
+
+  <rect id="setupWarehouse" x="52" y="222" width="376" height="168" rx="12" class="node"/>
+  <text x="72" y="254" class="nodeTitle">Section 3 - Warehouse control</text>
+  <text x="72" y="286" class="mono">dbo.Refresh0230Run</text>
+  <text x="72" y="312" class="mono">dbo.Refresh0230File</text>
+  <text x="72" y="338" class="mono">dbo.Refresh0230AuditBefore</text>
+  <text x="72" y="370" class="small">Checkpoints, six-file manifest, old audit history</text>
+
+  <rect id="setupBaseline" x="52" y="434" width="376" height="126" rx="12" class="node"/>
+  <text x="72" y="466" class="nodeTitle">Section 4 - Capture dependencies</text>
+  <text x="72" y="497" class="detail">Schemas, Silver update policy, summary MV,</text>
+  <text x="72" y="524" class="detail">retention/cache policies, and serving gates</text>
+
+  <rect id="setupAuthor" x="52" y="604" width="376" height="136" rx="12" class="refreshNode"/>
+  <text x="72" y="636" class="nodeTitle">Sections 5-11 - Build refresh</text>
+  <text x="72" y="668" class="mono">pl_refresh_DepositMovement_0230</text>
+  <text x="72" y="700" class="detail">Inputs, approvals, exact manifest,</text>
+  <text x="72" y="726" class="detail">replacement, checks, and repair activities</text>
+
+  <rect id="setupScheduler" x="52" y="784" width="376" height="136" rx="12" class="node"/>
+  <text x="72" y="816" class="nodeTitle">Section 12 - Wire scheduler</text>
+  <text x="72" y="848" class="detail">30-minute schedule, all hours, ICT</text>
+  <text x="72" y="878" class="detail">Shared lock and daily due-state routing</text>
+  <text x="72" y="904" class="detail">Reuse the existing ingestion child</text>
+
+  <rect id="setupAcceptance" x="52" y="964" width="376" height="144" rx="12" class="node"/>
+  <text x="72" y="996" class="nodeTitle">Section 13 - Supervised acceptance</text>
+  <text x="72" y="1028" class="detail">Resolve source/reference blockers</text>
+  <text x="72" y="1057" class="detail">Test scope, failures, recovery, and SLA</text>
+  <text x="72" y="1088" class="detail">Activate only after approval</text>
+
+  <rect x="52" y="1170" width="376" height="237" rx="12" fill="#f0f4fb" stroke="#c6d5e5"/>
+  <text x="72" y="1203" class="nodeTitle">Control tables are not locks</text>
+  <text x="72" y="1240" class="detail">The scheduler owns the create-only</text>
+  <text x="72" y="1267" class="mono">Refresh0230_BatchLock</text>
+  <text x="72" y="1305" class="detail">Coordinate old event/manual writers</text>
+  <text x="72" y="1332" class="detail">and independent EWI append jobs.</text>
+  <text x="72" y="1376" class="small">Creating a lock does not stop nonparticipants.</text>
+
+  <text x="52" y="1460" class="small">Diagram scope: the revised 02:30 requirement.</text>
+  <text x="52" y="1487" class="small">Not the older 03:30 correction design.</text>
+  <text x="52" y="1532" class="small">Design only - no live run or activation</text>
+  <text x="52" y="1559" class="small">is established by this illustration.</text>
+
+  <rect x="480" y="120" width="1190" height="1840" rx="16" fill="#ffffff" stroke="#bedde1"/>
+  <path d="M496 120 H1654 Q1670 120 1670 136 V193 H480 V136 Q480 120 496 120" fill="#087e8b"/>
+  <text x="505" y="151" class="panelTitle">B. Scheduled runtime - one owner at a time</text>
+  <text x="505" y="179" class="panelDetail">Only the existing scheduler is scheduled; the refresh child is invoked with ownership and approval inputs</text>
+
+  <path d="M1080 300 V337" class="edge"/>
+  <path d="M1080 441 V476" class="edge"/>
+  <path d="M700 522 H650 V584 H715 V616" class="edge"/>
+  <path d="M1300 568 V616" class="refreshEdge"/>
+  <path d="M1310 742 V784" class="refreshEdge"/>
+  <path d="M1310 888 V930" class="refreshEdge"/>
+  <path d="M1310 1048 V1090" class="refreshEdge"/>
+  <path d="M1310 1226 V1268" class="refreshEdge"/>
+  <path d="M1310 1386 V1428" class="refreshEdge"/>
+  <path d="M1310 1532 V1574" class="refreshEdge"/>
+  <path d="M1310 1724 V1776 H1080 V1820" class="refreshEdge"/>
+  <path d="M715 762 V830 H500 V1874 H700" class="edge"/>
+
+  <path d="M1000 688 H964 V1650" class="failureTrunk"/>
+  <path d="M1000 836 H964" class="failureTrunk"/>
+  <path d="M1000 989 H964" class="failureTrunk"/>
+  <path d="M1000 1158 H964" class="failureTrunk"/>
+  <path d="M1000 1327 H964" class="failureTrunk"/>
+  <path d="M1000 1480 H964" class="failureTrunk"/>
+  <path d="M1000 1650 H964" class="failureTrunk"/>
+  <path d="M964 1300 H930" class="failureEdge"/>
+  <text x="542" y="505" class="label">No correction due</text>
+  <text x="1315" y="602" class="label">Due at 02:30 or delayed catch-up</text>
+  <text x="524" y="864" class="small">Normal branch bypasses correction.</text>
+
+  <rect id="runtimeStart" x="700" y="212" width="760" height="88" rx="12" class="node"/>
+  <text x="724" y="244" class="nodeTitle">Existing scheduler - every 30 minutes, 24/7</text>
+  <text x="724" y="277" class="mono">pl_ingest_DepositMovement_schedule</text>
+
+  <rect id="runtimeOwnership" x="700" y="337" width="760" height="104" rx="12" class="node"/>
+  <text x="724" y="369" class="nodeTitle">Freeze ICT time - acquire shared batch lock - read state</text>
+  <text x="724" y="401" class="detail">Existing lock or incomplete refresh: stop and inspect; do not start a parallel load</text>
+  <text x="724" y="425" class="small">Acquire failure does not authorize releasing another run's lock.</text>
+
+  <rect id="runtimeDue" x="700" y="476" width="760" height="92" rx="12" class="node"/>
+  <text x="724" y="510" class="nodeTitle">At or after 02:30, and today's refresh is not Completed?</text>
+  <text x="724" y="542" class="detail">Use the frozen Bangkok date and durable Warehouse state</text>
+
+  <rect id="normalDiscovery" x="515" y="616" width="400" height="146" rx="12" class="reuseNode"/>
+  <text x="537" y="649" class="nodeTitle">Normal discovery and file loading</text>
+  <text x="537" y="680" class="mono">pl_ingest_DepositMovement_trigger_pipeline</text>
+  <text x="537" y="707" class="mono">  -&gt; pl_ingest_DepositMovement</text>
+  <text x="537" y="738" class="detail">Reuse existing pipelines unchanged</text>
+
+  <rect id="refreshPreflight" x="1000" y="616" width="620" height="126" rx="12" class="refreshNode"/>
+  <text x="1024" y="650" class="nodeTitle">1. Approve, verify owner, and freeze six filenames</text>
+  <text x="1024" y="682" class="detail">Check finalized source files, reference data, prior audit,</text>
+  <text x="1024" y="710" class="detail">and query-visible prior ingestion - sections 6-7</text>
+
+  <rect id="refreshBackup" x="1000" y="784" width="620" height="104" rx="12" class="refreshNode"/>
+  <text x="1024" y="817" class="nodeTitle">2. Back up before destructive work</text>
+  <text x="1024" y="849" class="detail">Selected Bronze/Silver and unrelated-row fingerprints</text>
+  <text x="1024" y="875" class="detail">Keep scoped recovery backups - section 8</text>
+
+  <rect id="refreshDelete" x="1000" y="930" width="620" height="118" rx="12" class="riskNode"/>
+  <text x="1024" y="963" class="nodeTitle">3. Hold serving and replace only the selected scope</text>
+  <text x="1024" y="995" class="detail">Drop existing summary MV; delete the six filenames'</text>
+  <text x="1024" y="1023" class="detail">Bronze/Silver rows; verify scope is empty - section 8</text>
+
+  <rect id="refreshReload" x="1000" y="1090" width="620" height="136" rx="12" class="reuseNode"/>
+  <text x="1024" y="1123" class="nodeTitle">4. Preserve audit history and reload six files once</text>
+  <text x="1024" y="1155" class="detail">Old Success -&gt; Superseded-0230; keep archive records</text>
+  <text x="1024" y="1184" class="detail">Sequential loop calls unchanged single-file child;</text>
+  <text x="1024" y="1210" class="detail">transactional update policy regenerates Silver - section 9</text>
+
+  <rect id="refreshVerify" x="1000" y="1268" width="620" height="118" rx="12" class="refreshNode"/>
+  <text x="1024" y="1301" class="nodeTitle">5. Wait for query-visible results and reconcile</text>
+  <text x="1024" y="1333" class="detail">Audit identity/counts, Bronze/Silver business rows,</text>
+  <text x="1024" y="1361" class="detail">classification, and unchanged unrelated rows - section 10</text>
+
+  <rect id="refreshViews" x="1000" y="1428" width="620" height="104" rx="12" class="refreshNode"/>
+  <text x="1024" y="1461" class="nodeTitle">6. Rebuild summary MV and restore its policies</text>
+  <text x="1024" y="1493" class="detail">Existing Gold summary reads corrected Bronze</text>
+  <text x="1024" y="1519" class="detail">Verify full results and view health - section 11</text>
+
+  <rect id="refreshEwiCommit" x="1000" y="1574" width="620" height="150" rx="12" class="refreshNode"/>
+  <text x="1024" y="1607" class="nodeTitle">7. Commit the verified correction</text>
+  <text x="1024" y="1639" class="detail">Bronze, Silver, and Gold summary checks must pass</text>
+  <text x="1024" y="1669" class="detail">No EWI objects deployed or required in PRD2</text>
+  <text x="1024" y="1700" class="detail">Then mark Refresh0230Run Completed - section 11</text>
+
+  <rect id="runtimeFailure" x="530" y="1160" width="400" height="278" rx="12" fill="#fff1f1" stroke="#b13a43" stroke-width="2"/>
+  <text x="552" y="1196" class="nodeTitle">Any failed guard, load, or repair</text>
+  <text x="552" y="1236" class="detail">Stop - do not publish readiness</text>
+  <text x="552" y="1267" class="detail">Retain the acquired owner lock</text>
+  <text x="552" y="1298" class="detail">Keep an existing serving hold in place</text>
+  <text x="552" y="1329" class="detail">Inspect manifest, backups, and stage</text>
+  <text x="552" y="1360" class="detail">Recover - do not reload on partial rows</text>
+  <text x="552" y="1404" class="small">No failure path joins the success path.</text>
+
+  <rect x="530" y="1500" width="400" height="182" rx="12" fill="#f0f4fb" stroke="#c6d5e5"/>
+  <text x="552" y="1536" class="nodeTitle">03:00 is conditional</text>
+  <text x="552" y="1574" class="detail">Normal ingestion only after the daily</text>
+  <text x="552" y="1602" class="detail">correction has completed successfully.</text>
+  <text x="552" y="1642" class="small">A delayed refresh takes priority; an active</text>
+  <text x="552" y="1667" class="small">or failed refresh blocks overlapping work.</text>
+
+  <rect id="runtimePublishRelease" x="700" y="1820" width="760" height="104" rx="12" class="reuseNode"/>
+  <text x="724" y="1854" class="nodeTitle">Selected branch succeeds - scheduler publishes and releases</text>
+  <text x="724" y="1886" class="detail">Publish verified readiness; release the shared owner lock on success only</text>
+  <text x="724" y="1911" class="small">Refresh child never independently releases the caller's lock - section 12</text>
+
+  <rect x="30" y="1990" width="1640" height="188" rx="16" fill="#e8f0fa" stroke="#b9cde3"/>
+  <text x="54" y="2027" class="nodeTitle">Exact refresh scope - six unique 30-minute files</text>
+  <text x="54" y="2064" class="detail">Yesterday 23:00-23:30 and 23:30-24:00; today 00:00-00:30, 00:30-01:00, 01:00-01:30, and 01:30-02:00.</text>
+  <text x="54" y="2098" class="detail">The repeated 0130_0200 entry is reloaded once. The 0200_0230 file is excluded. Select by filename business interval, not load timestamp.</text>
+  <text x="54" y="2142" class="small">New refresh pipeline: pl_refresh_DepositMovement_0230. Existing ingestion child: pl_ingest_DepositMovement. Normal source/CSV format stays unchanged.</text>
+</svg>

@@ -13,9 +13,55 @@ Production-format sample CSV files for end-to-end pipeline testing — pipe-deli
 | Storage account | `mockadlsidimdprd001` |
 | Container | `inflowoutflow` |
 | Upload folder | `inbound/statement/` |
-| Current sample range | **2026-07-01 .. 2026-07-10** (90 files, 9 intervals/day) |
+| Default generator sample range | **2026-07-01 .. 2026-07-10** (90 files, 9 intervals/day) |
 | Interval window | `09:45` → `12:00` (15-min) |
 | File-name time zone | **Bangkok / ICT (UTC+7)** |
+
+---
+
+## Additional mock set - November 19-20, 2026
+
+Full-day **30-minute** production-format CSVs are available in [resources/prd_datasets](../../resources/prd_datasets/). This matches the latest overnight-refresh filename examples; it does not change the existing 15-minute generators or older samples.
+
+Download/extract the [November 19-20 half-hour CSV bundle](../../resources/INTRADAY_SUMMARY_20261119_20261120_30min.zip), or select the `INTRADAY_SUMMARY_20261119_*.CSV` and `INTRADAY_SUMMARY_20261120_*.CSV` files from the local data folder.
+
+| Date (Bangkok / ICT) | Files | Data rows | Coverage |
+| --- | --- | --- | --- |
+| 2026-11-19 | 48 | 612 | `00:00-00:30` through `23:30-24:00` |
+| 2026-11-20 | 48 | 568 | `00:00-00:30` through `23:30-24:00` |
+| **Total** | **96** | **1,180** | Two complete days |
+
+These files use the exact [Bronze ingestion column order](../01-eventhouse-kql-tables/kql/01-create-DepositMovement.kql):
+
+```text
+Date|Time|Product|Channel|Channel_Group|Credit_Amount|Debit_Amount|Net_Amount|Credit_Transaction|Debit_Transaction|Total_Transaction
+```
+
+The line above describes the schema only: the actual CSV files have **no header**, use pipe separators, and contain **11 fields** per row. The ingestion pipeline adds the four system/lineage columns.
+
+- Amounts are width-18, right-aligned, with two decimal places. Channels are space-padded to four characters.
+- `Net_Amount = Credit_Amount - Debit_Amount` exactly, including negative net outflows.
+- `Total_Transaction = Credit_Transaction + Debit_Transaction`.
+- Rows are sorted by Product and Channel, with one row per active combination per half-hour.
+- The set reuses the date-seeded production mock model in [generate_prd_mock.py](../../resources/datasets/generate_prd_mock.py), combining adjacent 15-minute buckets and recomputing net from cent-rounded credit/debit amounts.
+- These are synthetic baseline files, not adjusted before/after variants or a guarantee of any particular Activator alert level.
+
+### Files for the November 20 02:30 refresh test
+
+The bundle includes each of the six selected files exactly once:
+
+```text
+INTRADAY_SUMMARY_20261119_2300_2330.CSV
+INTRADAY_SUMMARY_20261119_2330_2400.CSV
+INTRADAY_SUMMARY_20261120_0000_0030.CSV
+INTRADAY_SUMMARY_20261120_0030_0100.CSV
+INTRADAY_SUMMARY_20261120_0100_0130.CSV
+INTRADAY_SUMMARY_20261120_0130_0200.CSV
+```
+
+The separate `0200_0230` and `0230_0300` files also exist for normal ingestion testing; they are not added to the six-file replacement scope.
+
+See the [02:30 refresh guide](../ChangeRequest01/05-data-pipeline/README.md) for controlled testing. Upload **extracted CSVs**, not the ZIP, through the approved storage connection. To simulate arrival timing, upload only the intervals due at that point rather than all future-day files at once. Generation did not upload or ingest anything.
 
 ---
 

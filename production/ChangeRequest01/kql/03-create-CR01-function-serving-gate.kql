@@ -1,0 +1,12 @@
+// OPTIONAL: only for deployments that already use Gold_EarlyWarning().
+// Skip this file when no EWI function is deployed, as in the inspected PRD2 database.
+// Prerequisites: 01-create-CR01-serving-gates.kql and the reviewed Gold_EarlyWarning function.
+.create-or-alter function with (folder="CR01")
+CR01_EarlyWarning_Latest()
+{
+    // At midnight the latest closed bucket belongs to the previous date.
+    let ready=toscalar(CR01_PublishState | top 1 by ChangedAtUtc desc | project IsReady);
+    let closed=bin(now()+7h,30m)-30m;
+    Gold_EarlyWarning(startofday(closed))
+    | where ready==true and Bucket_Start==closed
+}

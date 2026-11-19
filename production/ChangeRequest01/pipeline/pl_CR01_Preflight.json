@@ -1,0 +1,105 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "name": "List Source Files Read Only",
+        "type": "GetMetadata",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:10:00",
+          "retry": 0,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "typeProperties": {
+          "fieldList": ["childItems"],
+          "datasetSettings": {
+            "annotations": [],
+            "type": "Binary",
+            "typeProperties": {
+              "location": {
+                "type": "AzureBlobFSLocation",
+                "folderPath": "inbound/statement",
+                "fileSystem": "inflowoutflow"
+              }
+            },
+            "externalReferences": {
+              "connection": "52065620-a202-4b92-8215-c348e25a8c2c"
+            }
+          },
+          "storeSettings": {
+            "type": "AzureBlobFSReadSettings",
+            "recursive": true,
+            "enablePartitionDiscovery": false
+          },
+          "formatSettings": {"type": "BinaryReadSettings"}
+        }
+      },
+      {
+        "name": "Read Audit Baseline",
+        "type": "Lookup",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:10:00",
+          "retry": 0,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "typeProperties": {
+          "source": {
+            "type": "DataWarehouseSource",
+            "sqlReaderQuery": "SELECT COUNT_BIG(*) AS SuccessfulFiles FROM dbo.ProcessedFiles WHERE Status='Success';",
+            "queryTimeout": "00:05:00",
+            "partitionOption": "None"
+          },
+          "firstRowOnly": true,
+          "datasetSettings": {
+            "annotations": [],
+            "linkedService": {
+              "name": "wh_control_framework",
+              "properties": {
+                "annotations": [],
+                "type": "DataWarehouse",
+                "typeProperties": {
+                  "endpoint": "k35aq6omcxkejht6cuywxdyb4q-hnymx4hlfrzuviycqeyfpqdeci.datawarehouse.fabric.microsoft.com",
+                  "artifactId": "141c432a-2e04-4a09-9201-4bcf091cc0a9",
+                  "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412"
+                }
+              }
+            },
+            "type": "DataWarehouseTable",
+            "schema": [],
+            "typeProperties": {}
+          }
+        }
+      },
+      {
+        "name": "Read KQL Baseline",
+        "type": "KustoQueryLanguage",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:10:00",
+          "retry": 0,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "linkedService": {
+          "name": "DepositMovement",
+          "properties": {
+            "annotations": [],
+            "type": "KustoDatabase",
+            "typeProperties": {
+              "workspaceId": "f0cb703b-2ceb-4a73-a302-813057c06412",
+              "endpoint": "https://trd-k344krpm42xbxq2184.z5.kusto.fabric.microsoft.com",
+              "database": "cd1134c9-97af-4ea3-a0e0-4d323eb6f5dd"
+            }
+          }
+        },
+        "typeProperties": {
+          "command": ".show table DepositMovement schema as json",
+          "commandTimeout": "00:05:00"
+        }
+      }
+    ]
+  }
+}

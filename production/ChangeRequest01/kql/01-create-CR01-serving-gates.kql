@@ -1,0 +1,25 @@
+// New serving objects only. Existing functions, views, and Activator rules are unchanged.
+// Run each command separately in the DepositMovement KQL database.
+// Core gates: only DepositMovement is required; no EWI objects are required.
+// Optional EWI functions are in separate 02/03 scripts with their own prerequisites.
+.create-merge table CR01_PublishState (IsReady:bool, ChangedAtUtc:datetime, Owner:string)
+with (folder="CR01")
+
+.create-or-alter function with (folder="CR01")
+CR01_Summary_Product_Channel_Alert()
+{
+    // Direct Bronze access avoids binding to an MV that is absent during rebuilding.
+    let ready=toscalar(CR01_PublishState | top 1 by ChangedAtUtc desc | project IsReady);
+    DepositMovement
+    | where ready==true
+    | summarize
+        Time=max(Time),
+        Credit_Amount=sum(Credit_Amount),
+        Debit_Amount=sum(Debit_Amount),
+        Net_Amount=sum(Net_Amount),
+        Credit_Transaction=sum(Credit_Transaction),
+        Debit_Transaction=sum(Debit_Transaction),
+        Total_Transaction=sum(Total_Transaction),
+        UpdatedAtUtc=max(load_ts)
+        by Date,Product,Channel,Channel_Group
+}

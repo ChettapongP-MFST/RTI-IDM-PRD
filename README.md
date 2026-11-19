@@ -54,6 +54,8 @@ Production-ready deployment based on the workshop series above. Each module maps
 | 08 | [Sample Data](production/08-sample-data/) | ✅ Ready | Production-format sample files (`2026-07-01..10`) + seeded generator for testing |
 | 09 | [Data Activator Alerts](production/09-activator-alerts/) | ✅ Ready | Tiered intraday `Net_Amount` alerts by Product + Channel from the Gold MV — **Email + Teams** |
 
+> **Change request:** follow [05 - Create the 02:30 refresh child](production/ChangeRequest01/05-data-pipeline/README.md), then [07 - Modify the existing scheduler](production/ChangeRequest01/07-interval-scheduler/README.md). These two guides cover required setup, 24/7 ingestion, correction routing, validation, and activation while reusing normal ingestion unchanged.
+
 > **Production ADLS Gen2:**
 > - Storage Account: `mockadlsidimdprd001` · Container: `inflowoutflow` · Folder: `inbound/statement/`
 >
