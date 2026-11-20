@@ -19,17 +19,20 @@ Production-format sample CSV files for end-to-end pipeline testing — pipe-deli
 
 ---
 
-## Additional mock set - November 19-20, 2026
+## Additional mock sets - November 19-21, 2026
 
 Full-day **30-minute** production-format CSVs are available in [resources/prd_datasets](../../resources/prd_datasets/). This matches the latest overnight-refresh filename examples; it does not change the existing 15-minute generators or older samples.
 
 Download/extract the [November 19-20 half-hour CSV bundle](../../resources/INTRADAY_SUMMARY_20261119_20261120_30min.zip), or select the `INTRADAY_SUMMARY_20261119_*.CSV` and `INTRADAY_SUMMARY_20261120_*.CSV` files from the local data folder.
 
+The [November 21 half-hour CSV bundle](../../resources/INTRADAY_SUMMARY_20261121_30min.zip) contains that date's 48 files, also available as `INTRADAY_SUMMARY_20261121_*.CSV` in the same local data folder. Existing November 19-20 files were not overwritten.
+
 | Date (Bangkok / ICT) | Files | Data rows | Coverage |
 | --- | --- | --- | --- |
 | 2026-11-19 | 48 | 612 | `00:00-00:30` through `23:30-24:00` |
 | 2026-11-20 | 48 | 568 | `00:00-00:30` through `23:30-24:00` |
-| **Total** | **96** | **1,180** | Two complete days |
+| 2026-11-21 | 48 | 580 | `00:00-00:30` through `23:30-24:00` |
+| **Total** | **144** | **1,760** | Three complete days |
 
 These files use the exact [Bronze ingestion column order](../01-eventhouse-kql-tables/kql/01-create-DepositMovement.kql):
 
@@ -60,6 +63,8 @@ INTRADAY_SUMMARY_20261120_0130_0200.CSV
 ```
 
 The separate `0200_0230` and `0230_0300` files also exist for normal ingestion testing; they are not added to the six-file replacement scope.
+
+For the **November 21** correction, use November 20's `2300_2330` and `2330_2400` files from the earlier bundle, plus November 21's four files covering `0000_0030` through `0130_0200`. November 21 is a Saturday, so it also provides weekend-classification test data.
 
 See the [02:30 refresh guide](../ChangeRequest01/05-data-pipeline/README.md) for controlled testing. Upload **extracted CSVs**, not the ZIP, through the approved storage connection. To simulate arrival timing, upload only the intervals due at that point rather than all future-day files at once. Generation did not upload or ingest anything.
 
