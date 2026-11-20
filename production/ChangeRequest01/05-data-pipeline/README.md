@@ -6,7 +6,7 @@
 
 Create one new pipeline that replaces a specific set of previously ingested files at **02:30 Bangkok time**. Reuse the existing single-file ingestion pipeline for the reload, then return to normal ingestion on subsequent batches.
 
-> **Verified runtime evidence:** The corrected native refresh, 03:00 normal repeat, and restored actual-clock tests passed. Final independent verification after both repeats exited **0**: 96 source versions unchanged, 1,180 exact business rows per layer, 40 test-date Gold groups, 81 refreshed rows, zero duplicates, and all test-date Silver rows CLASSIFIED. See the [single runtime test report](../RUNTIME-TEST-RESULTS.md) for the distinct failure/recovery/native-pass records, captured outputs, and coverage limits. Production clock conversion is restored; approval defaults remain false and scheduling disabled. This is PASS for the executed suite, not production activation approval. The earlier [live test report](../TEST-RESULTS.md) concerns a different design.
+> **Verified runtime evidence:** The earlier corrected native refresh, 03:00 normal repeat, and restored actual-clock tests passed. Final independent verification after both repeats exited **0**: 96 source versions unchanged, 1,180 exact business rows per layer, 40 test-date Gold groups, 81 refreshed rows, zero duplicates, and all test-date Silver rows CLASSIFIED. See [guide 07, section 9.6](../07-interval-scheduler/README.md#96-verified-live-test) for that executed suite, and the [latest test report](../TEST-RESULTS.md) for the November 20 successful lock recovery and supervised normal scheduler run. The lock is absent, audit/data counts are unchanged, and scheduling remains disabled. This manual recovery PASS is not unattended-operation or unconditional production activation approval.
 >
 > **File-list assumption:** The request repeated `0130_0200`. This guide reloads the **six unique files** listed below, once each. It does **not** include `0200_0230`. Confirm this selection before production activation.
 
@@ -1660,8 +1660,8 @@ The refresh child does **not** release the shared batch lock or independently pu
 - Test a partial child Copy and failed audit write. A child pipeline's handled failure must not pass the parent audit/data guards.
 - Confirm Gold backfill covers retained source history and the Bronze cache policy returns to 90 days before completion.
 - Measure the complete correction, not just MV rebuild. The corrected native scheduler test took about **11.86 minutes**, one observed sample, not a future SLA. The earlier failed attempt and manual recovery are not a comparable successful-performance measurement. Do not promise normal ingestion at 03:00: it waits for successful correction and a later eligible batch. Obtain the approved operational SLA; do not bypass the lock.
-- Retain actual run IDs, verification outputs, and screenshots. The [runtime test report](../RUNTIME-TEST-RESULTS.md) records the verified native pass and distinguishes executed from unexecuted cases.
-- Replay the report's [read-only SQL/KQL queries](../RUNTIME-TEST-RESULTS.md#10-read-only-sqlkql-replay-queries-and-captured-results) for the literal test dates and final refresh RunId; do not use the refresh RunId as a source-ingestion `pipeline_runid`.
+- Retain actual run IDs, verification outputs, and screenshots. The [latest test report](../TEST-RESULTS.md) distinguishes the fresh lock recovery/supervised run and same-day access preflight from earlier native acceptance and unexecuted cases.
+- Replay the report's [read-only SQL/KQL queries](../TEST-RESULTS.md#read-only-replay-queries) for the literal test dates and final refresh RunId. These replay count/control checks do not replace exact business-row reconciliation; do not use the refresh RunId as a source-ingestion `pipeline_runid`.
 
 ### Recovery rules
 

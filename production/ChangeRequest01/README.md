@@ -61,8 +61,8 @@ Guide 07 contains the acceptance checks, recorded live-test results, and recover
 
 Customer approval must cover source-file finalization, competing writers, consumer maintenance, recovery, and the tested data volume. Successful controlled tests do not automatically authorize production activation.
 
-## Retained historical report
+## Latest validation report
 
-[TEST-RESULTS.md](TEST-RESULTS.md) records the **earlier 03:30 design in RTI-IDM-PRD**. It is retained for history, not as installation instructions or acceptance evidence for this revised 02:30 workflow in RTI-IDM-PRD2.
+[TEST-RESULTS.md](TEST-RESULTS.md) records the **November 20 successful lock recovery and supervised scheduler test in RTI-IDM-PRD2**, source-access evidence, and unchanged Warehouse/KQL counts. The lock is absent and scheduling remains disabled pending approved scheduled-operation validation. The report distinguishes this fresh manual test from earlier 02:30 end-to-end acceptance.
 
 The earlier design's supporting folders and alternate guides have been removed. Follow only guides **05, then 07** above.
