@@ -156,7 +156,7 @@
   <rect id="refreshReload" x="1000" y="1090" width="620" height="136" rx="12" class="reuseNode"/>
   <text x="1024" y="1123" class="nodeTitle">4. Preserve audit history and reload six files once</text>
   <text x="1024" y="1155" class="detail">Old Success -&gt; Superseded-0230; keep archive records</text>
-  <text x="1024" y="1184" class="detail">Sequential loop calls unchanged single-file child;</text>
+  <text x="1024" y="1184" class="detail">Parallel loop - up to six unchanged child calls;</text>
   <text x="1024" y="1210" class="detail">transactional update policy regenerates Silver - section 9</text>
 
   <rect id="refreshVerify" x="1000" y="1268" width="620" height="118" rx="12" class="refreshNode"/>
@@ -165,9 +165,9 @@
   <text x="1024" y="1361" class="detail">classification, and unchanged unrelated rows - section 10</text>
 
   <rect id="refreshViews" x="1000" y="1428" width="620" height="104" rx="12" class="refreshNode"/>
-  <text x="1024" y="1461" class="nodeTitle">6. Rebuild summary MV and restore its policies</text>
-  <text x="1024" y="1493" class="detail">Existing Gold summary reads corrected Bronze</text>
-  <text x="1024" y="1519" class="detail">Verify full results and view health - section 11</text>
+  <text x="1024" y="1461" class="nodeTitle">6. Warm source cache and rebuild summary MV</text>
+  <text x="1024" y="1493" class="detail">Verify full results and view health</text>
+  <text x="1024" y="1519" class="detail">Restore source cache to 90 days - section 11</text>
 
   <rect id="refreshEwiCommit" x="1000" y="1574" width="620" height="150" rx="12" class="refreshNode"/>
   <text x="1024" y="1607" class="nodeTitle">7. Commit the verified correction</text>

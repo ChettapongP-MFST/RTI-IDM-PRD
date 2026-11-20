@@ -17,7 +17,7 @@ This document edits the **existing scheduler**, not a new controller. It does no
 
 > **Before running:** a manual scheduler run can ingest real files or invoke destructive correction. In particular, a run after 02:30 selects correction if today's refresh is not Completed. Keep the schedule disabled until the complete change and supervised tests are approved.
 >
-> These revised 02:30 instructions are documentation, not evidence that the final customer configuration has already passed an end-to-end live test.
+> The corrected native refresh, 03:00 normal repeat, and restored actual-clock run passed live tests in PRD2. See section 9.6 and the [single runtime test report](../RUNTIME-TEST-RESULTS.md) for evidence and coverage limits. Production clock conversion is restored; approval defaults remain false and scheduling disabled. Controlled tests do not prove unattended scheduled operation or authorize activation.
 
 ### What does "record the original name and expression" mean?
 
@@ -607,6 +607,49 @@ For each approved test, open its Monitor run as in section 9.2 and retain the ev
 | Unrelated/daytime records | Unchanged |
 
 A normal discovery run with no new files is a valid no-op, not proof of ingestion. A green run alone is not financial-data acceptance.
+
+### 9.6 Verified live test
+
+**Normal ingestion, corrected native refresh, and both normal-repeat checks passed.** In RTI-IDM-PRD2, scheduler run `5cf71d07-868e-4e9e-8245-52efc7d5fc58` succeeded with both approval parameters true. It ran on **2026-11-19, 17:23:05-17:47:48 UTC** (**2026-11-20, 00:23:05-00:47:48 ICT**), before 02:30. Automatic scheduling remained disabled.
+
+An independent source-to-output comparison passed for the files dated **2026-11-19 and 2026-11-20**:
+
+| Verified item | Result |
+| --- | --- |
+| Source files and current Success audit entries | 96 files; 96 current Success entries |
+| Bronze and Silver rows | 1,180 each: 612 for November 19 and 568 for November 20; exact match to source |
+| Silver classification | All test-date rows `CLASSIFIED` |
+| Gold summary | 40 groups, exactly matching the test-date source aggregation |
+| Credit / debit / net amounts | `620667116563.36` / `654667116563.50` / `-34000000000.14` |
+| Credit / debit / total transactions | `704772` / `680414` / `1385186` |
+| Control state after the normal run | No refresh registered; batch lock absent; readiness true |
+| Unrelated records | Unchanged |
+
+This is **test-date reconciliation**, not full-database Bronze/Silver parity. Final database-wide counts are 3,015 Bronze and 3,124 Silver, preserving the pre-existing September 17 difference of 109 extra Silver rows. Both test-date counts are exactly 1,180; unrelated history was not repaired.
+
+Correction scheduler run `1769832f-ebfc-42c1-a06d-3a046c0e3005` **failed** after child `37da5dc4-8e67-4c65-8739-151125ba02a9` reached `Rebuild Gold Summary`. All six files reloaded and all pre-rebuild source/audit/Silver/unrelated-record checks passed, but MV backfill rejected historical source extents outside the existing 90-day hot-cache policy. The failed root ran for **31 minutes 54 seconds**; this is not a successful correction duration.
+
+The lock was retained, readiness stayed false, and the checkpoint remained Running/Reloading: no automatic publication or release occurred. **Separate manual derived-stage recovery passed without another Copy:** source cache temporarily changed from 90 to 365 days, Gold rebuilt healthy/exact, the 90-day policy restored, and the original checkpoint completed before publication and release. Audit/isolation checks confirmed six new child identities, six archived/superseded originals, 81 replacement rows, 96 current Success entries, and unchanged unrelated records. The original jobs remain **Failed**.
+
+**The clean corrected native refresh then passed:** scheduler `24ab0ed7-01ee-4d61-9b2f-013e0a4f1932` ran on November 19, **18:45:30-18:57:21 UTC** (November 20, **01:45:30-01:57:21 ICT**), about **11.86 minutes**. Its 02:30 decision time was deliberately frozen for the test. Child `391be264-d3bd-4c32-80a7-d35fe89a25e1` ran **18:46:03-18:56:41 UTC**, recording 92 succeeded activities and zero failures. All six file-invocation intervals overlapped; the 365-day cache extension and 90-day restoration passed natively.
+
+Audit/isolation checks passed: six new child identities, 81 replacement rows, 96 current Success entries, 12 cumulative Superseded entries from two legitimate test cycles, and six current `Refresh0230AuditBefore` rows. First-cycle control snapshots were archived before the completed test fixture was reset; they are not expected as current SQL rows. Unrelated Bronze/Silver records were preserved, readiness was true, and no lock remained. Independent comparison again passed at 1,180 exact rows per layer and 40 Gold groups; all 96 source ETag/size/last-modified values were unchanged.
+
+Six controlled negative tests also passed their expected rejection checks: false approval, wrong owner, same-date child rerun, concurrent scheduler acquisition, absent future-date source files, and an isolated incomplete checkpoint. None changed original customer or November 19-20 data.
+
+The frozen-03:00 scheduler run `8d97bb46-6eb3-44ec-9cc8-f92f384372e6` passed on November 19, **18:59:38-19:01:52 UTC**. `CompletedToday=1` selected normal discovery `6c6105d8-c262-4662-96c3-a618f858a8e7`, not another correction.
+
+The production expression was then restored exactly to `@convertFromUtc(utcNow(),'SE Asia Standard Time')`. Actual-clock scheduler `3ebe2d47-fdb4-4e85-b8d3-c7f689c6f9ed` passed **19:03:15-19:04:53 UTC**, with frozen ICT wall-clock value **2026-11-20 02:03:24**, `CompletedToday=1`, and normal discovery `32bbbcab-5ec3-4843-9c4c-5d91cdd0cd04`. The service serializes that shifted clock value with `Z`; do not reinterpret it as a new UTC instant or apply another seven-hour conversion.
+
+Repeat audit/isolation checks passed after both runs. Current date-scoped Warehouse totals are **96 Success / 1,180 logged rows** and **12 Superseded / 162 logged rows**, reflecting two test replacement cycles. The sole current refresh row is `391be264-d3bd-4c32-80a7-d35fe89a25e1`, Completed/Verified; future-date test controls are removed. Approval defaults remain **false** and the schedule remains **disabled**. See the [single runtime test report](../RUNTIME-TEST-RESULTS.md) for detailed evidence and unexecuted fault-injection cases.
+
+Both repeat discovery runs scanned **839 folder items**, returned **zero filtered/new files**, and invoked ingestion **zero times**. Final control counts are one refresh run, six manifest rows, six AuditBefore rows, and zero incomplete runs; all four pipeline items are idle. Gold is enabled/healthy, source hot cache is 90 days, and readiness is true.
+
+The `2026-11-20` correction is already Completed, so it will **not automatically repeat on that date**, including at the real 02:30 start. Do not delete its checkpoint to force a rerun. Existing discovery and single-file ingestion definitions were independently compared and remain unchanged.
+
+Final independent verification after both repeats exited **0**: all 96 source versions were unchanged; both layers matched 1,180 exact business rows; all Silver test rows were CLASSIFIED; duplicate counts were zero; 81 selected rows and 40 test-date Gold groups matched. Final configuration verification confirmed 38 main/60 total refresh activities, parallelism six, the restored production clock, false approval defaults, disabled scheduling, unchanged reused children, and no live jobs. This is **PASS for the executed suite, not production activation approval**. The report includes self-contained evidence excerpts and [runnable read-only SQL/KQL](../RUNTIME-TEST-RESULTS.md#10-read-only-sqlkql-replay-queries-and-captured-results).
+
+**11.86 minutes is one observed sample, not a future 03:00 SLA.** Normal ingestion must still wait for successful correction and a later eligible batch.
 
 ## 10. Activate and monitor
 

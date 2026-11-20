@@ -6,7 +6,7 @@
 
 Create one new pipeline that replaces a specific set of previously ingested files at **02:30 Bangkok time**. Reuse the existing single-file ingestion pipeline for the reload, then return to normal ingestion on subsequent batches.
 
-> **Documentation only:** This guide does not create, execute, or enable a live pipeline. These revised 02:30 instructions have not been tested end-to-end in Fabric. The earlier [live test report](../TEST-RESULTS.md) concerns a different refresh design and must not be presented as validation of this one.
+> **Verified runtime evidence:** The corrected native refresh, 03:00 normal repeat, and restored actual-clock tests passed. Final independent verification after both repeats exited **0**: 96 source versions unchanged, 1,180 exact business rows per layer, 40 test-date Gold groups, 81 refreshed rows, zero duplicates, and all test-date Silver rows CLASSIFIED. See the [single runtime test report](../RUNTIME-TEST-RESULTS.md) for the distinct failure/recovery/native-pass records, captured outputs, and coverage limits. Production clock conversion is restored; approval defaults remain false and scheduling disabled. This is PASS for the executed suite, not production activation approval. The earlier [live test report](../TEST-RESULTS.md) concerns a different design.
 >
 > **File-list assumption:** The request repeated `0130_0200`. This guide reloads the **six unique files** listed below, once each. It does **not** include `0200_0230`. Confirm this selection before production activation.
 
@@ -66,6 +66,8 @@ The output inventory must match the target database: repair Silver classificatio
 
 **Do not use a Bronze-only delete/reload in this deployment.** Existing Silver would otherwise retain old rows, and the Gold summary could report stale or duplicated results.
 
+Acceptance requires exact selected/test-date reconciliation and preservation of unrelated records, not full-database Bronze/Silver parity. The pre-existing September 17 difference of **109 extra Silver rows** is outside this change and must not be silently repaired.
+
 ## 3. Prepare the new Warehouse control tables
 
 ### End-to-end overview - from preparation to the next normal batch
@@ -82,8 +84,8 @@ The left lane is **one-time setup** beginning with these Warehouse tables. The r
 | Integrate and approve | Wire the existing scheduler, coordinate writers/consumers, and complete supervised acceptance | Document 07 |
 | Route each batch | Freeze ICT time, acquire the shared lock, and check incomplete/due refresh state | Document 07 |
 | Normal branch | Invoke existing discovery and the unchanged single-file ingestion child | Document 07 |
-| Refresh branch | Validate exactly six files and prior ingestion; back up; hold serving; replace selected Bronze/Silver rows; preserve audit; reload each file once | Sections 6-10 |
-| Repair and verify | Rebuild the existing summary MV, restore its policies, reconcile, then mark complete | Section 11 |
+| Refresh branch | Validate exactly six files and prior ingestion; back up; hold serving; replace selected Bronze/Silver rows; preserve audit; reload each file once with parallelism bounded to six | Sections 6-10 |
+| Repair and verify | Extend Bronze cache coverage, rebuild/reconcile the existing summary MV, restore the original 90-day Bronze cache policy, then mark complete | Section 11 |
 | Finish | The scheduler publishes readiness and releases its lock only after its selected branch succeeds | Document 07 |
 | Failure | Retain any acquired owner lock, do not publish readiness, and recover the original scope before resuming | Section 13 |
 
@@ -124,9 +126,10 @@ flowchart TD
         RDelete["Delete only selected Bronze and Silver rows"]
         REmpty["Verify selected scope is empty"]
         RAudit["Archive old Success entries and supersede them"]
-        RReload["Sequentially reload six files via existing child"]
+        RReload["Reload six unique files - bounded parallelism six"]
         RCheck["Reconcile visibility, audit, Silver, unrelated rows"]
-        RViews["Rebuild summary MV - restore policies and verify"]
+        RViews["Warm Bronze cache - rebuild and verify summary MV"]
+        RCache["Restore original Bronze cache policy - 90 days"]
         RCommit["Mark refresh Completed only after all checks"]
         RPublish["Scheduler publishes verified readiness"]
         RRelease["Scheduler releases owned lock on success only"]
@@ -136,7 +139,7 @@ flowchart TD
         RDue -->|"Yes or delayed catch-up"| RInputs
         RInputs --> RSource --> RBackup --> RHold --> RDelete
         RDelete --> REmpty --> RAudit --> RReload --> RCheck
-        RCheck --> RViews --> RCommit --> RPublish
+        RCheck --> RViews --> RCache --> RCommit --> RPublish
         RPublish --> RRelease
         RLock -.->|"Lock already held"| RFail
         RState -.->|"Incomplete work"| RFail
@@ -144,6 +147,7 @@ flowchart TD
         RReload -.->|"Failed or partial load"| RFail
         RCheck -.->|"Mismatch"| RFail
         RViews -.->|"Repair failure"| RFail
+        RCache -.->|"Cache restoration failure"| RFail
         RNormalChild -.->|"Failure"| RFail
     end
     SAccept -.->|"Begin approved operation"| RStart
@@ -179,7 +183,7 @@ flowchart LR
     CCaller -->|"Normal batch"| CDiscover
     CRefresh --> CState
     CRefresh -->|"Supersede selected successes"| CAudit
-    CRefresh -->|"Reload six files"| CLoader
+    CRefresh -->|"Reload six files - parallelism six"| CLoader
     CDiscover --> CLoader
     CLoader --> CBronze
     CLoader --> CAudit
@@ -318,6 +322,14 @@ For each returned MV, capture its explicit retention and caching policies. The i
 
 The inventory must contain the existing `mv_Summary_Product_Channel_Alert` sourced from `DepositMovement`. Retain its complete query and policy values, not a truncated grid cell. This guide expects its reviewed definition shown in section 11; stop for review if the customer's definition, explicit policies, or dependency inventory differ.
 
+Next run this command by itself and retain its full result:
+
+```kql
+.show table DepositMovement policy caching
+```
+
+The verified PRD2 source policy is **90 days hot cache**. Steps 32A and 35A temporarily change it to **365 days**, then restore **90 days** after Gold reconciliation. Confirm with the database owner that all retained source extents are within the 365-day window before activation; the inspected oldest extent was **2026-07-06**. If the original policy differs or retained extents fall outside that window, stop for review before deletion. Do not silently overwrite a different policy or remove historical data to make backfill succeed.
+
 Next create the two new serving-support objects below. They use only the existing Bronze table.
 
 ### Create the core serving objects in the Fabric UI
@@ -424,7 +436,7 @@ For activities inside a loop or branch, open that loop/branch canvas **before** 
 | **Invoke pipeline** | `Invoke File Reload` | Call the existing single-file ingestion pipeline |
 | **Fail** | `Require Approval Failed` | Stop a branch with the supplied error code/message |
 
-Use the table only to identify menu labels. Follow **Step 01 through Step 36** below to build the main canvas. Activities inside a branch/loop are explicitly marked with their location.
+Use the table only to identify menu labels. Follow **Step 01 through Step 36**, including the inserted **32A before 32** and **35A after 35**, to build the main canvas. The original steps retain their numbers. Activities inside a branch/loop are explicitly marked with their location.
 
 #### Settings to apply to the new activities
 
@@ -451,6 +463,8 @@ A timeout is a failure, not permission to continue. Confirm these limits accommo
 ### Main-canvas build list
 
 This table lists the boxes on the **main canvas**. A row is not an instruction to create all later boxes now. Finish the matching numbered step, save, then move to the next row.
+
+The final definition contains **38 main-canvas activities and 60 activities including branches/loops**. Steps 01-36 keep their original numbers; 32A and 35A are the two inserted cache activities.
 
 | Step | Type to select in Activities | Name to enter in General | Connect On success from |
 | --- | --- | --- | --- |
@@ -485,11 +499,13 @@ This table lists the boxes on the **main canvas**. A row is not an instruction t
 | 29 | If condition | `Guard Reload Consistency` | `Check Reload Consistency` |
 | 30 | KQL | `Check Unrelated Rows` | `Guard Reload Consistency` |
 | 31 | If condition | `Guard Unrelated Rows` | `Check Unrelated Rows` |
-| 32 | KQL | `Rebuild Gold Summary` | `Guard Unrelated Rows` |
+| 32A | KQL | `Warm Bronze Cache For Backfill` | `Guard Unrelated Rows` |
+| 32 | KQL | `Rebuild Gold Summary` | `Warm Bronze Cache For Backfill` |
 | 33 | Until | `Wait For Healthy Views` | `Rebuild Gold Summary` |
 | 34 | KQL | `Check Gold Summary Values` | `Wait For Healthy Views` |
 | 35 | If condition | `Guard Gold Summary Values` | `Check Gold Summary Values` |
-| 36 | Script | `Mark Refresh Completed` | `Guard Gold Summary Values` |
+| 35A | KQL | `Restore Bronze Cache Policy` | `Guard Gold Summary Values` |
+| 36 | Script | `Mark Refresh Completed` | `Restore Bronze Cache Policy` |
 
 Names starting with `Guard` are **If condition** activities. Their True branch contains a Fail activity. The detailed steps provide each exact expression, Fail name, error code, and message. Do not invent a name or substitute a placeholder.
 
@@ -1084,7 +1100,7 @@ Preserve old audit entries; do not delete the whole control table or clear all t
 
 ### Step 24 - `Reload Selected Files` - ForEach
 
-**This step creates five separate boxes inside one ForEach. Do not paste the SQL check into a Get Metadata field.**
+**This step creates five boxes inside one ForEach with Sequential Off and batch count 6.** The five boxes run in the listed order for each file; up to six unique file iterations run in parallel. Do not paste the SQL check into a Get Metadata field.
 
 | Inner box | Type to select | Name | Connect On success from |
 | --- | --- | --- | --- |
@@ -1097,11 +1113,14 @@ Preserve old audit entries; do not delete the whole control table or clear all t
 1. On the main canvas, select **Activities > ForEach**.
 2. Set **General > Name** to `Reload Selected Files`.
 3. Connect `Supersede Audit` **On success** to it.
-4. Open **Settings**, turn **Sequential On/Checked**, and set **Items > Add dynamic content** to `@activity('Read Manifest').output.value`.
-5. Select **OK**, then open the ForEach's inner **Activities** canvas.
-6. Add the following five inner activities in order. All five belong inside this ForEach, not on the main pipeline canvas.
+4. Open **Settings**.
+5. Turn **Sequential Off/Unchecked**.
+6. Set **Batch count** to **6**.
+7. Select **Items > Add dynamic content** and enter `@activity('Read Manifest').output.value`.
+8. Select **OK**, then open the ForEach's inner **Activities** canvas.
+9. Add the following five inner activities in order. All five belong inside this ForEach, not on the main pipeline canvas.
 
-Do not set per-file pipeline variables in a parallel loop. This workflow deliberately reloads the files sequentially.
+Do not add **Set variable** or **Append variable** inside this loop. Each iteration uses its own `item()`, activity metadata, and SQL keyed by refresh RunId plus its unique FileName. Keep the five inner success connections serial within each iteration. The outer ForEach succeeds only after all six iterations succeed; connect `Capture Reload Audit` to that outer success output.
 
 #### Inside Step 24 - `Recheck Source Metadata` - Get Metadata
 
@@ -1424,17 +1443,36 @@ Compare the complete selected business-row multisets, not just totals. Normalize
 4. Select **OK**, open **True**, and add **Fail** named `Guard Unrelated Rows Failed`.
 5. Set Error code `R0230_VERIFY` and Message `Unrelated records changed during the six-file refresh.`
 6. Leave **False** empty, return to the main canvas, and **Save**.
-7. Continue to Step 32 from `Guard Unrelated Rows` **On success**.
+7. Continue to Step 32A from `Guard Unrelated Rows` **On success**.
 
 No unrelated filenames may be deleted or reloaded. Do not expect corrected totals to equal the old backups; legitimate business adjustments can change them.
 
 ## 11. Rebuild and verify downstream outputs before completion
 
+### Step 32A - `Warm Bronze Cache For Backfill` - KQL
+
+The first live correction reached the Gold rebuild after all six reloads and earlier checks passed, then failed because July source extents were outside the 90-day hot cache. Keep **all historical rows** and **`backfill=true`**. This inserted activity extends cache coverage before Step 32; it does not change the six-file scope.
+
+1. On the **main canvas**, select **Activities > KQL**.
+2. Set **General > Name** to `Warm Bronze Cache For Backfill`, **Retry** to `0`, and **Timeout** to `0.02:00:00`.
+3. Connect `Guard Unrelated Rows` **On success** to this activity.
+4. Open **Settings**, select the existing `DepositMovement` KQL database, and set **Command timeout** to `01:00:00`.
+5. In the plain **Command** editor, paste exactly:
+
+   ```kql
+   .alter table DepositMovement policy caching hot = 365d
+   ```
+
+6. Select **Save**, not Run.
+7. Continue to Step 32 from this activity's **On success** output. Do not leave a direct `Guard Unrelated Rows -> Rebuild Gold Summary` connection that bypasses it.
+
+This approved value requires the original 90-day policy and retained extents within 365 days, checked in section 4. Step 35A restores 90 days after Gold health/value checks. If a later stage fails, keep the lock/serving hold and include cache-policy restoration in controlled recovery; do not publish or release merely because the cache command succeeded.
+
 ### Step 32 - `Rebuild Gold Summary` - KQL
 
 1. On the main canvas, select **Activities > KQL**.
 2. Set **General > Name** to `Rebuild Gold Summary`, **Retry** to `0`, and **Timeout** to `0.02:00:00`.
-3. Connect `Guard Unrelated Rows` **On success** to it.
+3. Connect `Warm Bronze Cache For Backfill` **On success** to it.
 4. Open **Settings**, select `DepositMovement`, and set Command timeout to `01:00:00`.
 5. In the plain **Command** editor, paste this complete literal command; it has no pipeline interpolation:
 
@@ -1533,15 +1571,32 @@ Timeout: 30 minutes. Expect **one** summary MV. A different dependency inventory
 6. Set Error code `R0230_VERIFY` and Message `The rebuilt Gold summary differs from corrected Bronze.`
 7. Leave **False** empty, return to the main canvas, and **Save**.
 
-Health alone is not reconciliation. In PRD2, once summary health and values pass, continue to **`Mark Refresh Completed`**.
+Health alone is not reconciliation. Once summary health and values pass, restore the original Bronze cache policy in Step 35A before marking completion.
+
+### Step 35A - `Restore Bronze Cache Policy` - KQL
+
+1. On the **main canvas**, select **Activities > KQL**.
+2. Set **General > Name** to `Restore Bronze Cache Policy`, **Retry** to `0`, and **Timeout** to `0.02:00:00`.
+3. Connect `Guard Gold Summary Values` **On success** to this activity.
+4. Open **Settings**, select `DepositMovement`, and set **Command timeout** to `01:00:00`.
+5. In the plain **Command** editor, paste exactly:
+
+   ```kql
+   .alter table DepositMovement policy caching hot = 90d
+   ```
+
+6. Select **Save**, not Run.
+7. Continue to Step 36 from this activity's **On success** output. Remove any direct `Guard Gold Summary Values -> Mark Refresh Completed` connection that would bypass restoration.
+
+The verified original policy is 90 days. Do not leave 365 days as the normal policy. A failed restoration must prevent completion, readiness publication, and lock release until controlled recovery restores and verifies the approved policy.
 
 ### Step 36 - `Mark Refresh Completed` - Script, NonQuery
 
-Only connect this after **all** verification guards pass:
+Only connect this after **all** verification guards pass and the original Bronze cache policy is restored:
 
 1. On the main canvas, select **Activities > Script**.
 2. Set **General > Name** to `Mark Refresh Completed`, **Retry** to `0`, and **Timeout** to `0.02:00:00`.
-3. Connect `Guard Gold Summary Values` **On success** to it.
+3. Connect `Restore Bronze Cache Policy` **On success** to it.
 4. Open **Settings**, select Warehouse `wh_control_framework`, and add/select a **NonQuery** script block.
 5. Open the text editor > **Add dynamic content** and paste:
 
@@ -1564,9 +1619,10 @@ WHERE RunId='@{pipeline().RunId}' AND Status='Running';
 7. Check the final main-canvas chain:
 
    ```text
-   Guard Unrelated Rows -> Rebuild Gold Summary -> Wait For Healthy Views
+   Guard Unrelated Rows -> Warm Bronze Cache For Backfill
+     -> Rebuild Gold Summary -> Wait For Healthy Views
      -> Check Gold Summary Values -> Guard Gold Summary Values
-     -> Mark Refresh Completed
+     -> Restore Bronze Cache Policy -> Mark Refresh Completed
    ```
 
 8. Do not add a lock-release or readiness-publication activity to this child. Continue to section 12 to validate/save it, then use document 07 to configure its scheduler caller.
@@ -1586,6 +1642,8 @@ The refresh child does **not** release the shared batch lock or independently pu
 
 **Do not run this child directly to test it.** Its ownership check requires the scheduler's lock and owning RunId. Use the complete caller after document 07 is authored and the test is approved.
 
+**Verified deployment state:** the `2026-11-20` correction is already Completed/Verified. The scheduler will not automatically repeat that same-date correction, including when the real clock reaches 02:30. Keep its checkpoint; do not delete it to force another replacement.
+
 ## 13. Validate through Fabric and handle failures
 
 ### Before activation
@@ -1600,8 +1658,10 @@ The refresh child does **not** release the shared batch lock or independently pu
 - Verify unrelated/daytime records remain unchanged.
 - Test a second/concurrent start, a missed 02:30 run, and an incomplete refresh at 03:00.
 - Test a partial child Copy and failed audit write. A child pipeline's handled failure must not pass the parent audit/data guards.
-- Measure full-MV rebuild duration. If it cannot finish before 03:00, the stated normal-next-batch timing needs an approved operational SLA change; do not bypass the lock.
-- Capture actual run IDs, verification outputs, and screenshots. No 02:30 live-run evidence is supplied by this document.
+- Confirm Gold backfill covers retained source history and the Bronze cache policy returns to 90 days before completion.
+- Measure the complete correction, not just MV rebuild. The corrected native scheduler test took about **11.86 minutes**, one observed sample, not a future SLA. The earlier failed attempt and manual recovery are not a comparable successful-performance measurement. Do not promise normal ingestion at 03:00: it waits for successful correction and a later eligible batch. Obtain the approved operational SLA; do not bypass the lock.
+- Retain actual run IDs, verification outputs, and screenshots. The [runtime test report](../RUNTIME-TEST-RESULTS.md) records the verified native pass and distinguishes executed from unexecuted cases.
+- Replay the report's [read-only SQL/KQL queries](../RUNTIME-TEST-RESULTS.md#10-read-only-sqlkql-replay-queries-and-captured-results) for the literal test dates and final refresh RunId; do not use the refresh RunId as a source-ingestion `pipeline_runid`.
 
 ### Recovery rules
 
@@ -1609,7 +1669,7 @@ The refresh child does **not** release the shared batch lock or independently pu
 2. Inspect `Refresh0230Run`, its immutable six-file manifest, source metadata, backup suffix, child runs, and the precise failed stage.
 3. Before deletion: verify production data is unchanged before approving a restart.
 4. After partial reload: remove only the manifest-selected partial replacement, account for any queued child ingestion, and supersede/archive any newly created partial Success audit entries before retrying. Do not reload on top of existing partial rows.
-5. After a successful source reload but failed Gold-summary rebuild: resume/recover that derived-data stage, not the file Copy.
+5. After a successful source reload but failed Gold-summary rebuild: recover only the derived-data stage under the retained original owner, not the file Copy. Retain the original refresh RunId for checkpoint completion. For the verified cold-cache failure, extend cache coverage as in Step 32A, rebuild and verify Gold, restore/verify the original 90-day policy as in Step 35A, and only then complete the original checkpoint, publish, and release. The original failed jobs remain Failed even after successful manual recovery.
 6. For rollback, restore scoped Bronze/Silver backups under a captured temporarily disabled Silver update policy, avoiding a second generated Silver copy; restore the exact policy and rebuild/reconcile the existing summary MV. Preserve all audit history and restore only the original success identities captured in `Refresh0230AuditBefore`.
 7. Reconcile all layers and the SQL checkpoint before restoring readiness and releasing the lock.
 8. Archive/review the failed attempt explicitly. The initial `Register Refresh` intentionally blocks blind second runs for the same date; do not delete its checkpoint to bypass investigation.
